@@ -1,0 +1,33 @@
+{
+  "name": "campaign-cms",
+  "version": "1.0.0",
+  "description": "Campaign Management CMS",
+  "main": "index.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
+    "frontend": "npx http-server frontend -p 3000 -c-1",
+    "dev:full": "concurrently \"npm run dev\" \"npm run frontend\"",
+    "reset-db": "node backend/reset-db.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "campaign",
+    "cms",
+    "management"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "sequelize": "^6.37.7",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "http-server": "^14.1.1",
+    "nodemon": "^2.0.22"
+  }
+}
