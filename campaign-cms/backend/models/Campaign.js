@@ -7,6 +7,15 @@ const Campaign = sequelize.define('Campaign', {
     primaryKey: true,
     autoIncrement: true
   },
+  campaignId: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    validate: {
+      notEmpty: true,
+      len: [1, 50]
+    }
+  },
   title: {
     type: DataTypes.STRING,
     allowNull: false,

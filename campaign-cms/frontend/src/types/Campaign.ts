@@ -1,6 +1,7 @@
 // Campaign types matching backend API
 export interface Campaign {
   id: number;
+  campaignId: string;
   title: string;
   state: CampaignState;
   startDate?: string;

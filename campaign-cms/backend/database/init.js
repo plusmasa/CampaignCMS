@@ -31,6 +31,7 @@ async function seedDatabase() {
     // Create sample campaigns
     const sampleCampaigns = [
       {
+        campaignId: 'CAMP-2025-SS-001',
         title: 'Summer Sale 2025',
         state: 'Draft',
         channels: ['Email', 'BNP'],
@@ -43,6 +44,7 @@ async function seedDatabase() {
         }
       },
       {
+        campaignId: 'CAMP-2025-BTS-002',
         title: 'Back to School Campaign',
         state: 'Scheduled',
         channels: ['Email', 'Rewards Dashboard'],
@@ -55,6 +57,7 @@ async function seedDatabase() {
         }
       },
       {
+        campaignId: 'CAMP-2025-HP-003',
         title: 'Holiday Preview',
         state: 'Live',
         channels: ['BNP', 'Rewards Dashboard'],

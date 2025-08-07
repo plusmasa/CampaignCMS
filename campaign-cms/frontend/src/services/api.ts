@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { Campaign, CreateCampaignRequest, UpdateCampaignRequest, ApiResponse, PaginatedResponse, CampaignFilters } from '../types/Campaign';
 
 // Get API base URL from environment variables with fallback
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
 
 // Development logging
 if (import.meta.env.DEV) {

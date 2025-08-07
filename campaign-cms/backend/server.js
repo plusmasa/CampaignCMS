@@ -28,7 +28,7 @@ const isCodespaces = !!(process.env.CODESPACE_NAME && process.env.GITHUB_CODESPA
 const corsOptions = {
   origin: isCodespaces 
     ? true // Allow all origins in Codespaces due to dynamic URLs
-    : [FRONTEND_URL, 'http://localhost:3000', 'http://127.0.0.1:3000'],
+    : [FRONTEND_URL, 'http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'],
   credentials: true,
 };
 

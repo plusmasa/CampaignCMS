@@ -1,21 +1,20 @@
-const { sequelize } = require('./models');
+const { sequelize } = require('./database/connection');
 const { initializeDatabase, seedDatabase } = require('./database/init');
 
 async function resetDatabase() {
   try {
     console.log('🔄 Resetting database...');
     
-    // Drop all tables and recreate them
+    // Force sync to recreate tables with new schema
     await sequelize.sync({ force: true });
     
-    console.log('✅ Database reset complete');
+    console.log('✅ Database reset successfully');
     
-    // Re-seed with updated data
+    // Seed with new data including campaign IDs
     await seedDatabase();
     
-    console.log('🎉 Database reset and re-seeded successfully!');
+    console.log('🎉 Database reset and seeded successfully');
     process.exit(0);
-    
   } catch (error) {
     console.error('❌ Database reset failed:', error);
     process.exit(1);
