@@ -51,28 +51,59 @@ Based on the requirements in our PRD, this document outlines the technical stack
 ├── backend/               # Node.js/Express API server
 │   ├── server.js         # Main server file
 │   ├── models/           # Database models (Sequelize)
+│   │   ├── Campaign.js   # Campaign model definition
+│   │   └── index.js      # Models index and associations
 │   ├── routes/           # API route handlers
+│   │   ├── campaigns.js  # Campaign CRUD operations
+│   │   ├── campaign-workflow.js # State management
+│   │   ├── channel-management.js # Channel configurations
+│   │   └── reports.js    # Reporting endpoints
+│   ├── utils/            # Shared utilities (DRY compliance)
+│   │   ├── responses.js  # Standardized API responses
+│   │   ├── validation.js # Centralized validation logic
+│   │   ├── constants.js  # Valid values and configs
+│   │   ├── logger.js     # Structured logging system
+│   │   └── middleware.js # Reusable middleware functions
 │   ├── database/         # Database connection and initialization
+│   │   ├── connection.js # Database connection setup
+│   │   └── init.js       # Database initialization
 │   ├── data/            # SQLite database file
-│   └── reset-db.js      # Database reset utility
+│   │   └── campaign_cms.sqlite # Main database
+│   ├── reset-db.js      # Database reset utility
+│   └── update-schedule-stop.js # Utility scripts
 ├── frontend/             # Static HTML/CSS/JS (Phase 1-2)
 │   └── index.html       # Simple frontend for testing
+├── tests/               # Comprehensive test suite
+│   ├── unit/            # Unit tests for utilities
+│   ├── integration/     # API integration tests
+│   └── fixtures/        # Test data and mocks
 ├── package.json         # Dependencies and scripts
+├── jest.config.json     # Jest testing configuration
 ├── .env                 # Environment configuration
 └── .env.example        # Environment template
-│   └── src/
-│       ├── components/     # Reusable UI components
-│       ├── pages/          # Page components
-│       └── App.js
-├── server/                 # Express backend
-│   ├── controllers/        # Request handlers
-│   ├── models/             # Data models
-│   ├── routes/             # API routes
-│   └── server.js
-├── database/               # SQLite database files
-├── config/                 # Configuration files
-└── package.json
 ```
+
+### Development Dependencies and Production Stack
+
+**Core Backend Dependencies:**
+- `express` - Web framework for Node.js
+- `sequelize` - Promise-based ORM for SQL databases
+- `sqlite3` - SQLite database driver
+- `cors` - Cross-Origin Resource Sharing middleware
+- `dotenv` - Environment variable management
+- `concurrently` - Run multiple commands concurrently
+
+**Testing and Code Quality:**
+- `jest` - JavaScript testing framework
+- `supertest` - HTTP assertion library for testing APIs
+- `eslint` - JavaScript linting utility
+- `prettier` - Code formatter
+
+**Production Utilities:**
+- `winston` - Professional logging library
+- `joi` - Schema validation for JavaScript objects
+- `helmet` - Security middleware for Express
+- `express-rate-limit` - Rate limiting middleware
 
 ## Key Benefits of This Stack
 1. **Easy Local Development**: Node.js and SQLite require minimal setup
@@ -80,6 +111,8 @@ Based on the requirements in our PRD, this document outlines the technical stack
 3. **Scalable**: Can upgrade to PostgreSQL/MySQL and add more servers when needed
 4. **Familiar Technologies**: Well-documented and large community support
 5. **Cross-Platform**: Works on macOS, Windows, and Linux
+6. **Professional Quality**: Comprehensive testing, DRY principles, structured logging
+7. **Maintainable**: Clean architecture with shared utilities and error handling
 
 ## Development Approach
 1. Start with a minimal Express.js server for API endpoints
@@ -89,14 +122,32 @@ Based on the requirements in our PRD, this document outlines the technical stack
 5. Add authentication/authorization in later phases
 
 ## API Endpoints
+
+### Core Campaign Management
 - `GET /api/health` - API health check
 - `GET /api/db-health` - Database health check
-- `GET /api/campaigns` - Get all campaigns with filtering and sorting
+- `GET /api/campaigns` - Get all campaigns with filtering, sorting, and pagination
 - `GET /api/campaigns/:id` - Get specific campaign details
-- `POST /api/campaigns` - Create new campaign
-- `PUT /api/campaigns/:id` - Update campaign
-- `DELETE /api/campaigns/:id` - Delete campaign
-- `GET /api/campaigns/:id/reports` - Get campaign reports (Future phase)
+- `POST /api/campaigns` - Create new campaign (Draft state only)
+- `PUT /api/campaigns/:id` - Update campaign (with state validation)
+- `DELETE /api/campaigns/:id` - Delete campaign (Draft state only)
+
+### Campaign Workflow Management
+- `PUT /api/campaigns/:id/workflow` - Transition campaign state (Draft → Scheduled → Live → Complete)
+- `GET /api/campaigns/:id/workflow/history` - Get state transition history
+- `POST /api/campaigns/:id/schedule` - Schedule campaign with validation
+- `POST /api/campaigns/:id/stop` - Stop live campaign
+
+### Channel Management
+- `GET /api/channels` - Get available channels and their configurations
+- `GET /api/channels/:channel/config` - Get specific channel configuration schema
+- `PUT /api/campaigns/:id/channels/:channel` - Update channel-specific configuration
+- `GET /api/campaigns/:id/channels/:channel/preview` - Preview channel content
+
+### Reporting (Future Implementation)
+- `GET /api/campaigns/:id/reports` - Get campaign performance reports
+- `GET /api/campaigns/:id/reports/:channel` - Get channel-specific reports
+- `POST /api/campaigns/:id/reports/generate` - Generate new report
 
 ## Database Schema
 ### Campaigns Table
@@ -128,6 +179,18 @@ Based on the requirements in our PRD, this document outlines the technical stack
 - `npm run frontend` - Start frontend development server (port 3000)
 - `npm run dev:full` - Start both backend and frontend concurrently
 - `npm run reset-db` - Reset and re-seed database
+- `npm test` - Run comprehensive test suite (Jest + Supertest)
+- `npm run test:watch` - Run tests in watch mode for development
+- `npm run test:coverage` - Run tests with code coverage analysis
+- `npm run lint` - Run ESLint code quality checks
+
+### Code Quality and Testing
+- **Testing Framework**: Jest with Supertest for API testing
+- **Coverage Target**: 80% minimum code coverage threshold
+- **Code Quality**: ESLint with professional configuration
+- **Architecture**: DRY principles with shared utility modules
+- **Logging**: Structured logging with environment-aware output
+- **Error Handling**: Comprehensive async error handling and validation
 
 ### Port Configuration
 - **Backend API**: http://localhost:3001

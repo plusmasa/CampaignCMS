@@ -1,125 +1,194 @@
 const express = require('express');
 const { Campaign } = require('../models');
+const { Op } = require('sequelize');
+const { successResponse, errorResponse, paginationResponse } = require('../utils/responses');
+const { validateChannels, validateMarkets, validateTitle } = require('../utils/validation');
+const { VALID_CHANNELS, VALID_MARKETS, VALID_STATES } = require('../utils/constants');
+const { handleAsyncError } = require('../utils/middleware');
+const { logger } = require('../utils/logger');
 const router = express.Router();
 
-// GET /api/campaigns - Get all campaigns
-router.get('/', async (req, res) => {
-  try {
-    const campaigns = await Campaign.findAll({
-      order: [['updatedAt', 'DESC']]
-    });
-    
-    res.json({
-      success: true,
-      data: campaigns,
-      count: campaigns.length
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch campaigns',
-      error: error.message
+// GET /api/campaigns - Get all campaigns with filtering and sorting
+router.get('/', handleAsyncError(async (req, res) => {
+  const { 
+    state, 
+    channel, 
+    market, 
+    sortBy = 'updatedAt', 
+    sortOrder = 'DESC',
+    page = 1,
+    limit = 100
+  } = req.query;
+
+  logger.debug('Fetching campaigns', { filters: { state, channel, market }, pagination: { page, limit } });
+
+  // Build where clause for filtering
+  const whereClause = {};
+  
+  if (state) {
+    whereClause.state = state;
+  }
+
+  // Channel filtering (check if campaign has specific channel)
+  if (channel) {
+    whereClause.channels = {
+      [Op.like]: `%"${channel}"%`
+    };
+  }
+
+  // Pagination
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+
+  const { count, rows: campaigns } = await Campaign.findAndCountAll({
+    where: whereClause,
+    order: [[sortBy, sortOrder.toUpperCase()]],
+    limit: parseInt(limit),
+    offset: offset
+  });
+
+  // Filter by market if specified (post-query filtering for JSON field)
+  let filteredCampaigns = campaigns;
+  if (market && market !== 'all') {
+    filteredCampaigns = campaigns.filter(campaign => {
+      if (campaign.markets === 'all') return true;
+      return Array.isArray(campaign.markets) && campaign.markets.includes(market);
     });
   }
-});
+  
+  res.json(paginationResponse(filteredCampaigns, {
+    currentPage: parseInt(page),
+    totalPages: Math.ceil(count / parseInt(limit)),
+    totalCount: count,
+    hasNextPage: offset + filteredCampaigns.length < count,
+    hasPrevPage: parseInt(page) > 1
+  }, { state, channel, market, sortBy, sortOrder }));
+}));
 
 // GET /api/campaigns/:id - Get single campaign
-router.get('/:id', async (req, res) => {
-  try {
-    const campaign = await Campaign.findByPk(req.params.id);
-    
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found'
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: campaign
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch campaign',
-      error: error.message
-    });
+router.get('/:id', handleAsyncError(async (req, res) => {
+  const campaign = await Campaign.findByPk(req.params.id);
+  
+  if (!campaign) {
+    return res.status(404).json(errorResponse('Campaign not found', 404));
   }
-});
+  
+  res.json(successResponse(campaign));
+}));
 
 // POST /api/campaigns - Create new campaign
-router.post('/', async (req, res) => {
+router.post('/', handleAsyncError(async (req, res) => {
+  const { title, channels = [], markets } = req.body;
+  
+  logger.debug('Creating new campaign', { title, channels, markets });
+  
   try {
-    const campaign = await Campaign.create(req.body);
+    // Validate required fields
+    const validatedTitle = validateTitle(title);
     
-    res.status(201).json({
-      success: true,
-      message: 'Campaign created successfully',
-      data: campaign
+    // Validate channels if provided
+    if (channels.length > 0) {
+      validateChannels(channels);
+    }
+
+    // Validate markets if provided
+    if (markets) {
+      validateMarkets(markets);
+    }
+
+    const campaign = await Campaign.create({
+      ...req.body,
+      title: validatedTitle,
+      state: 'Draft' // Always start as Draft
     });
+    
+    logger.info('Campaign created successfully', { campaignId: campaign.id, title: campaign.title });
+    res.status(201).json(successResponse(campaign, 'Campaign created successfully'));
+    
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: 'Failed to create campaign',
-      error: error.message
-    });
+    logger.warn('Campaign creation failed', { title, error: error.message });
+    res.status(400).json(errorResponse('Failed to create campaign', 400, error.message));
   }
-});
+}));
 
 // PUT /api/campaigns/:id - Update campaign
-router.put('/:id', async (req, res) => {
+router.put('/:id', handleAsyncError(async (req, res) => {
+  const campaign = await Campaign.findByPk(req.params.id);
+  
+  if (!campaign) {
+    return res.status(404).json(errorResponse('Campaign not found', 404));
+  }
+
   try {
-    const campaign = await Campaign.findByPk(req.params.id);
-    
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found'
-      });
+    // Validate title if being updated
+    if (req.body.title !== undefined) {
+      req.body.title = validateTitle(req.body.title);
+    }
+
+    // Prevent direct state changes through this endpoint
+    if (req.body.state && req.body.state !== campaign.state) {
+      return res.status(400).json(errorResponse(
+        'State changes must be done through workflow endpoints (/api/workflow/...)', 400
+      ));
+    }
+
+    // Validate channels if being updated
+    if (req.body.channels) {
+      validateChannels(req.body.channels);
+    }
+
+    // Validate markets if being updated
+    if (req.body.markets) {
+      validateMarkets(req.body.markets);
     }
     
     await campaign.update(req.body);
     
-    res.json({
-      success: true,
-      message: 'Campaign updated successfully',
-      data: campaign
-    });
+    logger.info('Campaign updated successfully', { campaignId: campaign.id });
+    res.json(successResponse(campaign, 'Campaign updated successfully'));
+    
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: 'Failed to update campaign',
-      error: error.message
-    });
+    logger.warn('Campaign update failed', { campaignId: req.params.id, error: error.message });
+    res.status(400).json(errorResponse('Failed to update campaign', 400, error.message));
   }
-});
+}));
 
 // DELETE /api/campaigns/:id - Delete campaign
-router.delete('/:id', async (req, res) => {
-  try {
-    const campaign = await Campaign.findByPk(req.params.id);
-    
-    if (!campaign) {
-      return res.status(404).json({
-        success: false,
-        message: 'Campaign not found'
-      });
-    }
-    
-    await campaign.destroy();
-    
-    res.json({
-      success: true,
-      message: 'Campaign deleted successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete campaign',
-      error: error.message
-    });
+router.delete('/:id', handleAsyncError(async (req, res) => {
+  const campaign = await Campaign.findByPk(req.params.id);
+  
+  if (!campaign) {
+    return res.status(404).json(errorResponse('Campaign not found', 404));
   }
-});
+
+  // Only allow deletion of Draft campaigns
+  if (campaign.state !== 'Draft') {
+    return res.status(400).json(errorResponse(
+      `Cannot delete campaign in ${campaign.state} state. Only Draft campaigns can be deleted.`, 400
+    ));
+  }
+  
+  await campaign.destroy();
+  
+  logger.info('Campaign deleted successfully', { campaignId: campaign.id, title: campaign.title });
+  res.json(successResponse(null, 'Campaign deleted successfully'));
+}));
+
+// GET /api/campaigns/by-state/:state - Get campaigns by state
+router.get('/by-state/:state', handleAsyncError(async (req, res) => {
+  const { state } = req.params;
+  
+  if (!VALID_STATES.includes(state)) {
+    return res.status(400).json(errorResponse(
+      `Invalid state: ${state}. Valid states: ${VALID_STATES.join(', ')}`, 400
+    ));
+  }
+
+  const campaigns = await Campaign.findAll({
+    where: { state },
+    order: [['updatedAt', 'DESC']]
+  });
+  
+  res.json(successResponse(campaigns, `Found ${campaigns.length} campaigns in ${state} state`));
+}));
 
 module.exports = router;

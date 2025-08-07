@@ -6,9 +6,14 @@ require('dotenv').config();
 // Database imports
 const { testConnection } = require('./database/connection');
 const { initializeDatabase, seedDatabase } = require('./database/init');
+const { globalErrorHandler } = require('./utils/middleware');
+const { logger } = require('./utils/logger');
 
 // Route imports
 const campaignRoutes = require('./routes/campaigns');
+const workflowRoutes = require('./routes/campaign-workflow');
+const channelRoutes = require('./routes/channel-management');
+const reportRoutes = require('./routes/reports');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,6 +26,9 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 
 // API Routes
 app.use('/api/campaigns', campaignRoutes);
+app.use('/api/workflow', workflowRoutes);
+app.use('/api/channels', channelRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Basic route for testing
 app.get('/api/health', (req, res) => {
@@ -55,11 +63,14 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
+// Global error handler (must be last)
+app.use(globalErrorHandler);
+
 // Start server with database initialization
 async function startServer() {
   try {
     // Test database connection
-    console.log('🔗 Testing database connection...');
+    logger.info('Testing database connection...');
     const dbConnected = await testConnection();
     
     if (!dbConnected) {
@@ -67,7 +78,7 @@ async function startServer() {
     }
     
     // Initialize database
-    console.log('🏗️ Setting up database...');
+    logger.info('Setting up database...');
     await initializeDatabase();
     
     // Seed database with sample data
@@ -75,16 +86,16 @@ async function startServer() {
     
     // Start the server
     app.listen(PORT, () => {
-      console.log(`🚀 Campaign CMS Backend API running on port ${PORT}`);
-      console.log(`📱 Frontend: http://localhost:${FRONTEND_PORT}`);
-      console.log(`🔧 API Health: http://localhost:${PORT}/api/health`);
-      console.log(`🗄️ Database Health: http://localhost:${PORT}/api/db-health`);
-      console.log(`📊 Campaigns API: http://localhost:${PORT}/api/campaigns`);
-      console.log('✅ Phase 2: Database setup complete!');
+      logger.info(`Campaign CMS Backend API running on port ${PORT}`);
+      logger.info(`Frontend: http://localhost:${FRONTEND_PORT}`);
+      logger.info(`API Health: http://localhost:${PORT}/api/health`);
+      logger.info(`Database Health: http://localhost:${PORT}/api/db-health`);
+      logger.info(`Campaigns API: http://localhost:${PORT}/api/campaigns`);
+      logger.info('Phase 3.5: Code Quality Improvements complete!');
     });
     
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    logger.error('Failed to start server:', error);
     process.exit(1);
   }
 }
