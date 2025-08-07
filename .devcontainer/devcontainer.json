@@ -1,0 +1,35 @@
+{
+  "name": "Campaign CMS Development",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:18",
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      },
+      "extensions": [
+        "ms-vscode.vscode-typescript-next",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-eslint"
+      ]
+    }
+  },
+  "forwardPorts": [3000, 3001],
+  "portsAttributes": {
+    "3000": {
+      "label": "Frontend (React + Vite)",
+      "onAutoForward": "notify"
+    },
+    "3001": {
+      "label": "Backend API (Express)",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "cd campaign-cms && npm install && cd frontend && npm install",
+  "postStartCommand": "echo 'Campaign CMS Development Environment Ready!'",
+  "remoteUser": "node"
+}

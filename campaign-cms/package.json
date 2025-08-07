@@ -6,15 +6,20 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
-    "frontend": "npx http-server frontend -p 3000 -c-1",
+    "frontend": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:preview": "cd frontend && npm run preview",
     "dev:full": "concurrently \"npm run dev\" \"npm run frontend\"",
     "reset-db": "node backend/reset-db.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:frontend": "cd frontend && npm test",
     "lint": "eslint backend/",
     "lint:fix": "eslint backend/ --fix",
-    "format": "prettier --write backend/**/*.js"
+    "format": "prettier --write backend/**/*.js",
+    "type-check": "cd frontend && npm run type-check",
+    "build": "npm run frontend:build"
   },
   "keywords": [
     "campaign",
