@@ -2,49 +2,103 @@ const express = require('express');
 const { Campaign } = require('../models');
 const router = express.Router();
 
-// GET /api/channels - Get available channels and their configurations
-router.get('/', (req, res) => {
-  const availableChannels = {
-    'Email': {
-      name: 'Email',
-      description: 'Email marketing campaigns',
-      configFields: {
-        subject: { type: 'string', required: true, label: 'Subject Line' },
-        bodyContent: { type: 'text', required: true, label: 'Email Body' },
-        senderName: { type: 'string', required: false, label: 'Sender Name' },
-        senderEmail: { type: 'email', required: false, label: 'Sender Email' },
-        template: { type: 'select', required: false, label: 'Email Template', options: ['default', 'promotional', 'newsletter'] }
-      }
-    },
-    'BNP': {
-      name: 'BNP',
-      description: 'Banner and promotion displays',
-      configFields: {
-        title: { type: 'string', required: true, label: 'Banner Title' },
-        description: { type: 'text', required: false, label: 'Banner Description' },
-        linkUrl: { type: 'url', required: false, label: 'Click URL' },
-        backgroundImage: { type: 'url', required: false, label: 'Background Image URL' },
-        position: { type: 'select', required: false, label: 'Banner Position', options: ['top', 'middle', 'bottom', 'sidebar'] }
-      }
-    },
-    'Rewards Dashboard': {
-      name: 'Rewards Dashboard',
-      description: 'Rewards dashboard promotions',
-      configFields: {
-        title: { type: 'string', required: true, label: 'Promotion Title' },
-        description: { type: 'text', required: true, label: 'Promotion Description' },
-        linkUrl: { type: 'url', required: false, label: 'Action URL' },
-        backgroundImage: { type: 'url', required: false, label: 'Background Image URL' },
-        scheduleStop: { type: 'datetime', required: false, label: 'Stop Display Date' },
-        priority: { type: 'select', required: false, label: 'Display Priority', options: ['high', 'medium', 'low'] }
-      }
+// Channel schemas and market lists used by multiple endpoints
+const CHANNEL_SCHEMAS = {
+  'Email': {
+    name: 'Email',
+    description: 'Email marketing campaigns',
+    fields: {
+      subject: { type: 'string', required: true, label: 'Subject Line' },
+      bodyContent: { type: 'text', required: true, label: 'Email Body' },
+      senderName: { type: 'string', required: false, label: 'Sender Name' },
+      senderEmail: { type: 'email', required: false, label: 'Sender Email' },
+      template: { type: 'select', required: false, label: 'Email Template', options: ['default', 'promotional', 'newsletter'] }
     }
-  };
+  },
+  'BNP': {
+    name: 'BNP',
+    description: 'Banner and promotion displays',
+    fields: {
+      title: { type: 'string', required: true, label: 'Banner Title' },
+      description: { type: 'text', required: false, label: 'Banner Description' },
+      linkUrl: { type: 'url', required: false, label: 'Click URL' },
+      backgroundImage: { type: 'url', required: false, label: 'Background Image URL' },
+      position: { type: 'select', required: false, label: 'Banner Position', options: ['top', 'middle', 'bottom', 'sidebar'] }
+    }
+  },
+  'Rewards Dashboard': {
+    name: 'Rewards Dashboard',
+    description: 'Rewards dashboard promotions',
+    fields: {
+      title: { type: 'string', required: true, label: 'Promotion Title' },
+      description: { type: 'text', required: true, label: 'Promotion Description' },
+      linkUrl: { type: 'url', required: false, label: 'Action URL' },
+      backgroundImage: { type: 'url', required: false, label: 'Background Image URL' },
+      scheduleStop: { type: 'datetime', required: false, label: 'Stop Display Date' },
+      priority: { type: 'select', required: false, label: 'Display Priority', options: ['high', 'medium', 'low'] }
+    }
+  }
+};
 
+const VALID_MARKETS = ['US', 'UK', 'CA', 'AU', 'DE', 'FR', 'JP'];
+
+// GET /api/channels - list channels and configurations (shape expected by tests)
+router.get('/', (req, res) => {
+  const channels = Object.keys(CHANNEL_SCHEMAS);
   res.json({
     success: true,
-    data: availableChannels,
-    count: Object.keys(availableChannels).length
+    data: {
+      channels,
+      configurations: CHANNEL_SCHEMAS
+    }
+  });
+});
+
+// GET /api/channels/:channel/config - channel-specific configuration
+router.get('/:channel/config', (req, res) => {
+  const channelName = decodeURIComponent(req.params.channel);
+  if (!CHANNEL_SCHEMAS[channelName]) {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid channel: ${channelName}`
+    });
+  }
+  res.json({
+    success: true,
+    data: {
+      channel: channelName,
+      config: CHANNEL_SCHEMAS[channelName]
+    }
+  });
+});
+
+// GET /api/channels/markets - list markets and configurations
+router.get('/markets', (req, res) => {
+  const configurations = VALID_MARKETS.reduce((acc, m) => {
+    acc[m] = {
+      timezone: 'UTC',
+      currency: m === 'US' ? 'USD' : m === 'UK' ? 'GBP' : 'EUR'
+    };
+    return acc;
+  }, {});
+  res.json({
+    success: true,
+    data: {
+      markets: VALID_MARKETS,
+      configurations
+    }
+  });
+});
+
+// GET /api/channels/validation - return valid sets
+router.get('/validation', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      validChannels: Object.keys(CHANNEL_SCHEMAS),
+      validMarkets: VALID_MARKETS,
+      validStates: ['Draft', 'Scheduled', 'Live', 'Complete', 'Deleted']
+    }
   });
 });
 

@@ -37,20 +37,21 @@ describe('Constants', () => {
     it('should contain expected campaign states', () => {
       expect(VALID_STATES).toContain('Draft');
       expect(VALID_STATES).toContain('Scheduled');
-      expect(VALID_STATES).toContain('Live');
-      expect(VALID_STATES).toContain('Complete');
+  expect(VALID_STATES).toContain('Live');
+  expect(VALID_STATES).toContain('Complete');
+  expect(VALID_STATES).toContain('Deleted');
     });
 
     it('should be an array', () => {
       expect(Array.isArray(VALID_STATES)).toBe(true);
     });
 
-    it('should have exactly 4 states', () => {
-      expect(VALID_STATES).toHaveLength(4);
+    it('should have exactly 5 states (including Deleted)', () => {
+      expect(VALID_STATES).toHaveLength(5);
     });
 
     it('should maintain proper state order for workflow', () => {
-      const expectedOrder = ['Draft', 'Scheduled', 'Live', 'Complete'];
+      const expectedOrder = ['Draft', 'Scheduled', 'Live', 'Complete', 'Deleted'];
       expectedOrder.forEach(state => {
         expect(VALID_STATES).toContain(state);
       });

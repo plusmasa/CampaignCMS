@@ -39,19 +39,24 @@ interface HeaderProps {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  customLeft?: React.ReactNode; // Optional left-side custom content (replaces title/subtitle)
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, subtitle, actions }) => {
+export const Header: React.FC<HeaderProps> = ({ title, subtitle, actions, customLeft }) => {
   const styles = useStyles();
 
   return (
     <header className={styles.header}>
-      <div className={styles.headerContent}>
-        <Title1 className={styles.title}>{title}</Title1>
-        {subtitle && (
-          <Text className={styles.subtitle}>{subtitle}</Text>
-        )}
-      </div>
+      {customLeft ? (
+        <div className={styles.headerContent}>{customLeft}</div>
+      ) : (
+        <div className={styles.headerContent}>
+          <Title1 className={styles.title}>{title}</Title1>
+          {subtitle && (
+            <Text className={styles.subtitle}>{subtitle}</Text>
+          )}
+        </div>
+      )}
       {actions && (
         <div className={styles.actions}>
           {actions}

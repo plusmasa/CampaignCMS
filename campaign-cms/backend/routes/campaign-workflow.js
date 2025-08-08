@@ -1,6 +1,88 @@
 const express = require('express');
 const { Campaign } = require('../models');
 const router = express.Router();
+const { STATE_TRANSITIONS } = require('../utils/constants');
+
+// PUT /api/workflow/campaigns/:id/transition - generic state transition with validation
+router.put('/campaigns/:id/transition', async (req, res) => {
+  try {
+    const campaign = await Campaign.findByPk(req.params.id);
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: 'Campaign not found' });
+    }
+    const { newState } = req.body || {};
+    if (!newState) {
+      return res.status(400).json({ success: false, message: 'newState is required' });
+    }
+    const allowed = STATE_TRANSITIONS[campaign.state] || [];
+    if (!allowed.includes(newState)) {
+      return res.status(400).json({ success: false, message: 'Invalid state transition' });
+    }
+    campaign.state = newState;
+    await campaign.save();
+    res.json({ success: true, message: 'State updated', data: campaign });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to transition', error: error.message });
+  }
+});
+
+// POST /api/workflow/campaigns/:id/schedule - set future dates and schedule
+router.post('/campaigns/:id/schedule', async (req, res) => {
+  try {
+    const campaign = await Campaign.findByPk(req.params.id);
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: 'Campaign not found' });
+    }
+    const { startDate, endDate } = req.body || {};
+    if (!startDate || new Date(startDate) <= new Date()) {
+      return res.status(400).json({ success: false, message: 'Start date must be in the future' });
+    }
+    campaign.state = 'Scheduled';
+    campaign.startDate = new Date(startDate);
+    if (endDate) campaign.endDate = new Date(endDate);
+    await campaign.save();
+    res.json({ success: true, message: 'Campaign scheduled', data: campaign });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to schedule', error: error.message });
+  }
+});
+
+// POST /api/workflow/campaigns/:id/stop - stop live campaign
+router.post('/campaigns/:id/stop', async (req, res) => {
+  try {
+    const campaign = await Campaign.findByPk(req.params.id);
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: 'Campaign not found' });
+    }
+    if (campaign.state !== 'Live') {
+      return res.status(400).json({ success: false, message: 'Only Live campaigns can be stopped' });
+    }
+    campaign.state = 'Complete';
+    campaign.endDate = new Date();
+    await campaign.save();
+    res.json({ success: true, message: 'Campaign stopped', data: campaign });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to stop campaign', error: error.message });
+  }
+});
+
+// GET /api/workflow/campaigns/:id/history - mock transition history
+router.get('/campaigns/:id/history', async (req, res) => {
+  try {
+    const campaign = await Campaign.findByPk(req.params.id);
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: 'Campaign not found' });
+    }
+    const transitions = [
+      { state: 'Draft', at: campaign.createdAt || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) },
+      campaign.startDate ? { state: 'Live', at: campaign.startDate } : { state: 'Scheduled', at: new Date() },
+      campaign.endDate ? { state: 'Complete', at: campaign.endDate } : null
+    ].filter(Boolean);
+    res.json({ success: true, data: { transitions } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to get history', error: error.message });
+  }
+});
 
 // POST /api/workflow/publish/:id - Publish campaign (Draft -> Live/Scheduled)
 router.post('/publish/:id', async (req, res) => {

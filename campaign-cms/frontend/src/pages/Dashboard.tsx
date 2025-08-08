@@ -19,7 +19,9 @@ import {
   MenuPopover,
   MenuList,
   MenuItem,
+  tokens,
 } from '@fluentui/react-components';
+// Note: column animations removed per request; DataGrid uses default behavior.
 import type { TableColumnDefinition } from '@fluentui/react-components';
 import {
   ArrowCircleRight24Regular,
@@ -30,13 +32,16 @@ import {
   ArrowUpload16Regular,
 } from '@fluentui/react-icons';
 import { campaignService } from '../services/api';
-import type { Campaign, CampaignFilters, CampaignState, Channel } from '../types/Campaign';
+import { getBadgeStyle } from '../constants/stateBadge';
+import type { Campaign, CampaignState, Channel } from '../types/Campaign';
 import { Header } from '../components/Header';
 import { Loading } from '../components/Loading';
-import { CreateCampaignModal } from '../components/CreateCampaignModal';
+// CreateCampaignModal removed in Phase 5 in favor of dedicated editor page
 import { FilterPanel, type DateFilterOption } from '../components/FilterPanel';
 import { LeftNavigation } from '../components/LeftNavigation';
 import { format, isAfter, isBefore, subDays, startOfDay } from 'date-fns';
+
+// (no-op)
 
 const useStyles = makeStyles({
   root: {
@@ -88,6 +93,7 @@ const useStyles = makeStyles({
     flex: 1,
     ...shorthands.overflow('auto'),
   },
+  // no grid wrapper
   actionsColumn: {
     display: 'flex',
     alignItems: 'center',
@@ -109,10 +115,38 @@ const useStyles = makeStyles({
     alignItems: 'center',
     ...shorthands.gap('12px'),
   },
+  // removed table animation styles
+  // Animated right rail container (kept mounted for transitions)
+  panelContainer: {
+    overflow: 'hidden',
+    width: '300px', // matches FilterPanel width including border/padding via border-box
+  flex: '0 0 auto', // prevent shrinking; width controls actual size
+    transitionProperty: 'width',
+    transitionDuration: tokens.durationFast,
+    transitionTimingFunction: tokens.curveEasyEase,
+  },
+  panelContainerClosed: {
+    width: '0px',
+  },
+  panelInner: {
+    height: '100%',
+    transform: 'translateX(0)',
+    opacity: 1,
+  width: '100%',
+    transitionProperty: 'transform, opacity',
+    transitionDuration: tokens.durationFast,
+    transitionTimingFunction: tokens.curveEasyEase,
+    willChange: 'transform, opacity',
+  },
+  panelInnerClosed: {
+    transform: 'translateX(100%)',
+    opacity: 0,
+  },
 });
 
 export const Dashboard: React.FC = () => {
   const styles = useStyles();
+  // no animation keyframes
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [filteredCampaigns, setFilteredCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,6 +158,7 @@ export const Dashboard: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('all');
   const [customDate, setCustomDate] = useState<Date | null>(null);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(true);
+  // removed gridPulse state
   const [visibleColumns, setVisibleColumns] = useState<{
     title: boolean;
     campaignId: boolean;
@@ -141,19 +176,14 @@ export const Dashboard: React.FC = () => {
     updatedAt: true,
     actions: true,
   });
-  const [filters, setFilters] = useState<CampaignFilters>({
-    page: 1,
-    limit: 50,
-    sortBy: 'updatedAt',
-    sortOrder: 'desc',
-  });
+  // Backend fetch currently ignores client-side filters except pagination; simplified for Phase 5 draft work
 
   // Load campaigns
   const loadCampaigns = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await campaignService.getCampaigns(filters);
+  const response = await campaignService.getCampaigns({ page: 1, limit: 100, sortBy: 'updatedAt', sortOrder: 'desc' });
       if (response.success && response.data) {
         setCampaigns(response.data);
       } else {
@@ -176,7 +206,7 @@ export const Dashboard: React.FC = () => {
     dateFilter: DateFilterOption,
     customDate: Date | null
   ): Campaign[] => {
-    let filtered = campaigns;
+  let filtered = campaigns.filter(c => c.state !== 'Deleted');
 
     // Apply state filter first
     if (stateFilter !== 'all') {
@@ -306,23 +336,12 @@ export const Dashboard: React.FC = () => {
       ),
     }),
     // State column (optional)
-    visibleColumns.state && createTableColumn<Campaign>({
+  visibleColumns.state && createTableColumn<Campaign>({
       columnId: 'state',
       compare: (a, b) => a.state.localeCompare(b.state),
       renderHeaderCell: () => 'State',
       renderCell: (item) => (
-        <Badge 
-          appearance={
-            item.state === 'Live' ? 'filled' :
-            item.state === 'Scheduled' ? 'outline' :
-            item.state === 'Draft' ? 'tint' : 'ghost'
-          }
-          color={
-            item.state === 'Live' ? 'success' :
-            item.state === 'Scheduled' ? 'important' :
-            item.state === 'Draft' ? 'informative' : 'subtle'
-          }
-        >
+    <Badge {...getBadgeStyle(item.state)}>
           {item.state}
         </Badge>
       ),
@@ -366,7 +385,7 @@ export const Dashboard: React.FC = () => {
             appearance="subtle"
             icon={<ArrowCircleRight24Regular />}
             size="small"
-            onClick={() => console.log('Edit campaign:', item.id)}
+            onClick={() => window.open(`/campaigns/${item.id}`, '_blank')}
             title="Edit campaign"
           />
         </div>
@@ -375,31 +394,7 @@ export const Dashboard: React.FC = () => {
   ].filter(Boolean) as TableColumnDefinition<Campaign>[];
 
   // Load campaigns on component mount and when filters change
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        // Remove search and state from filters since we're doing client-side filtering
-        const backendFilters = { ...filters };
-        delete backendFilters.search;
-        delete backendFilters.state;
-        
-        const response = await campaignService.getCampaigns(backendFilters);
-        if (response.success && response.data) {
-          setCampaigns(response.data);
-        } else {
-          setError(response.message || 'Failed to load campaigns');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load campaigns');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [filters]);
+  useEffect(() => { loadCampaigns(); }, []);
 
   // Apply client-side filtering whenever campaigns, searchQuery, stateFilter, marketFilter, channelFilter, dateFilter, or customDate changes
   useEffect(() => {
@@ -470,7 +465,7 @@ export const Dashboard: React.FC = () => {
               >
                 Bulk Upload Campaigns
               </Button>
-              <CreateCampaignModal onCampaignCreated={loadCampaigns} />
+              <Button appearance="primary" onClick={() => window.open('/campaigns/new/draft', '_blank')}>New Campaign</Button>
             </div>
           }
         />
@@ -487,24 +482,26 @@ export const Dashboard: React.FC = () => {
             </div>
             <Loading message="Loading campaigns..." />
           </main>
-          {isFilterPanelOpen && (
-            <FilterPanel
-              searchQuery={searchQuery}
-              stateFilter={stateFilter}
-              marketFilter={marketFilter}
-              channelFilter={channelFilter}
-              dateFilter={dateFilter}
-              customDate={customDate}
-              onSearchChange={handleSearchChange}
-              onStateFilterChange={handleStateFilterChange}
-              onMarketFilterChange={handleMarketFilterChange}
-              onChannelFilterChange={handleChannelFilterChange}
-              onDateFilterChange={handleDateFilterChange}
-              onCustomDateChange={handleCustomDateChange}
-              totalCampaigns={0}
-              filteredCount={0}
-            />
-          )}
+          <div className={`${styles.panelContainer} ${!isFilterPanelOpen ? styles.panelContainerClosed : ''}`}>
+            <div className={`${styles.panelInner} ${!isFilterPanelOpen ? styles.panelInnerClosed : ''}`}>
+              <FilterPanel
+                searchQuery={searchQuery}
+                stateFilter={stateFilter}
+                marketFilter={marketFilter}
+                channelFilter={channelFilter}
+                dateFilter={dateFilter}
+                customDate={customDate}
+                onSearchChange={handleSearchChange}
+                onStateFilterChange={handleStateFilterChange}
+                onMarketFilterChange={handleMarketFilterChange}
+                onChannelFilterChange={handleChannelFilterChange}
+                onDateFilterChange={handleDateFilterChange}
+                onCustomDateChange={handleCustomDateChange}
+                totalCampaigns={0}
+                filteredCount={0}
+              />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -529,12 +526,12 @@ export const Dashboard: React.FC = () => {
               >
                 Bulk Upload Campaigns
               </Button>
-              <CreateCampaignModal onCampaignCreated={loadCampaigns} />
+              <Button appearance="primary" onClick={() => window.open('/campaigns/new/draft', '_blank')}>New Campaign</Button>
             </div>
           }
         />
         
-        <div className={styles.contentWithPanel}>
+  <div className={styles.contentWithPanel}>
           <main className={styles.main}>
           {error && (
             <MessageBar intent="error" className={styles.errorMessage}>
@@ -651,24 +648,26 @@ export const Dashboard: React.FC = () => {
           )}
         </main>
 
-        {isFilterPanelOpen && (
-          <FilterPanel
-            searchQuery={searchQuery}
-            stateFilter={stateFilter}
-            marketFilter={marketFilter}
-            channelFilter={channelFilter}
-            dateFilter={dateFilter}
-            customDate={customDate}
-            onSearchChange={handleSearchChange}
-            onStateFilterChange={handleStateFilterChange}
-            onMarketFilterChange={handleMarketFilterChange}
-            onChannelFilterChange={handleChannelFilterChange}
-            onDateFilterChange={handleDateFilterChange}
-            onCustomDateChange={handleCustomDateChange}
-            totalCampaigns={campaigns.length}
-            filteredCount={filteredCampaigns.length}
-          />
-        )}
+        <div className={`${styles.panelContainer} ${!isFilterPanelOpen ? styles.panelContainerClosed : ''}`}>
+          <div className={`${styles.panelInner} ${!isFilterPanelOpen ? styles.panelInnerClosed : ''}`}>
+            <FilterPanel
+              searchQuery={searchQuery}
+              stateFilter={stateFilter}
+              marketFilter={marketFilter}
+              channelFilter={channelFilter}
+              dateFilter={dateFilter}
+              customDate={customDate}
+              onSearchChange={handleSearchChange}
+              onStateFilterChange={handleStateFilterChange}
+              onMarketFilterChange={handleMarketFilterChange}
+              onChannelFilterChange={handleChannelFilterChange}
+              onDateFilterChange={handleDateFilterChange}
+              onCustomDateChange={handleCustomDateChange}
+              totalCampaigns={campaigns.length}
+              filteredCount={filteredCampaigns.length}
+            />
+          </div>
+        </div>
         </div>
       </div>
     </div>

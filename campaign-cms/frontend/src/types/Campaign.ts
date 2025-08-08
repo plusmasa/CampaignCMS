@@ -13,7 +13,7 @@ export interface Campaign {
   updatedAt: string;
 }
 
-export type CampaignState = 'Draft' | 'Scheduled' | 'Live' | 'Complete';
+export type CampaignState = 'Draft' | 'Scheduled' | 'Live' | 'Complete' | 'Deleted';
 
 export type Channel = 'Email' | 'BNP' | 'Rewards Dashboard';
 

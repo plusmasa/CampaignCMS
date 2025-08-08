@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { Campaign, CreateCampaignRequest, UpdateCampaignRequest, ApiResponse, PaginatedResponse, CampaignFilters } from '../types/Campaign';
 
 // Get API base URL from environment variables with fallback
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 // Development logging
 if (import.meta.env.DEV) {
@@ -73,21 +73,41 @@ export const campaignService = {
     return response.data;
   },
 
+  // Duplicate campaign -> creates a new Draft copied from the original
+  async duplicateCampaign(id: number): Promise<ApiResponse<Campaign>> {
+    const response = await apiClient.post(`/campaigns/${id}/duplicate`);
+    return response.data;
+  },
+
   // Workflow operations
   async transitionCampaignState(id: number, newState: string): Promise<ApiResponse<Campaign>> {
-    const response = await apiClient.put(`/campaigns/${id}/workflow`, { newState });
+    const response = await apiClient.put(`/workflow/campaigns/${id}/transition`, { newState });
     return response.data;
   },
 
   // Schedule campaign
   async scheduleCampaign(id: number, startDate: string, endDate?: string): Promise<ApiResponse<Campaign>> {
-    const response = await apiClient.post(`/campaigns/${id}/schedule`, { startDate, endDate });
+    const response = await apiClient.post(`/workflow/campaigns/${id}/schedule`, { startDate, endDate });
+    return response.data;
+  },
+
+  // Publish campaign (Draft -> Live now, or Scheduled if publishDate in the future)
+  async publishCampaign(id: number, publishDate?: string): Promise<ApiResponse<Campaign>> {
+    const path = `/workflow/publish/${id}`;
+    const payload = publishDate ? { publishDate } : {};
+    const response = await apiClient.post(path, payload);
     return response.data;
   },
 
   // Stop campaign
   async stopCampaign(id: number): Promise<ApiResponse<Campaign>> {
-    const response = await apiClient.post(`/campaigns/${id}/stop`);
+    const response = await apiClient.post(`/workflow/campaigns/${id}/stop`);
+    return response.data;
+  },
+
+  // Unschedule campaign (Scheduled -> Draft)
+  async unscheduleCampaign(id: number): Promise<ApiResponse<Campaign>> {
+    const response = await apiClient.post(`/workflow/unschedule/${id}`);
     return response.data;
   },
 };

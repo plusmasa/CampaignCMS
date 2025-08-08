@@ -1,34 +1,23 @@
-const { sequelize, Campaign } = require('../models');
+const { Campaign } = require('../models');
 
 async function initializeDatabase() {
   try {
-    console.log('🔄 Initializing database...');
-    
-    // Sync all models with the database
-    await sequelize.sync({ force: false });
-    
-    console.log('✅ Database initialized successfully');
-    console.log('📊 Tables created: campaigns');
-    
+    // Sync Campaign model with alter to match tests
+    await Campaign.sync({ alter: true });
     return true;
   } catch (error) {
-    console.error('❌ Database initialization failed:', error);
-    return false;
+    throw error;
   }
 }
 
 async function seedDatabase() {
   try {
-    console.log('🌱 Seeding database with sample data...');
-    
-    // Check if we already have data
-    const existingCampaigns = await Campaign.count();
-    if (existingCampaigns > 0) {
-      console.log('📋 Database already contains data, skipping seed');
+    // Check if we already have any campaign
+    const existing = await Campaign.findOne();
+    if (existing) {
       return true;
     }
-    
-    // Create sample campaigns
+
     const sampleCampaigns = [
       {
         campaignId: 'CAMP-2025-SS-001',
@@ -69,15 +58,25 @@ async function seedDatabase() {
           'Rewards Dashboard': { section: 'seasonal' }
         }
       }
+      ,
+      {
+        campaignId: 'CAMP-2025-CMP-004',
+        title: 'Spring Wrap-up',
+        state: 'Complete',
+        channels: ['Email'],
+        markets: ['DE', 'FR'],
+        startDate: new Date('2025-03-01'),
+        endDate: new Date('2025-04-01'),
+        channelConfig: {
+          Email: { template: 'newsletter' }
+        }
+      }
     ];
     
     await Campaign.bulkCreate(sampleCampaigns);
-    
-    console.log(`✅ Successfully seeded ${sampleCampaigns.length} sample campaigns`);
     return true;
   } catch (error) {
-    console.error('❌ Database seeding failed:', error);
-    return false;
+    throw error;
   }
 }
 

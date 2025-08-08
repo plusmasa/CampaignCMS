@@ -3,7 +3,7 @@ const { Campaign } = require('../models');
 const { Op } = require('sequelize');
 const { successResponse, errorResponse, paginationResponse } = require('../utils/responses');
 const { validateChannels, validateMarkets, validateTitle } = require('../utils/validation');
-const { VALID_CHANNELS, VALID_MARKETS, VALID_STATES } = require('../utils/constants');
+const { VALID_STATES } = require('../utils/constants');
 const { handleAsyncError } = require('../utils/middleware');
 const { logger } = require('../utils/logger');
 const router = express.Router();
@@ -28,6 +28,10 @@ router.get('/', handleAsyncError(async (req, res) => {
   if (state) {
     whereClause.state = state;
   }
+  // Always exclude soft-deleted campaigns
+  whereClause.state = whereClause.state
+    ? whereClause.state
+    : { [Op.ne]: 'Deleted' };
 
   // Channel filtering (check if campaign has specific channel)
   if (channel) {
@@ -152,7 +156,7 @@ router.put('/:id', handleAsyncError(async (req, res) => {
   }
 }));
 
-// DELETE /api/campaigns/:id - Delete campaign
+// DELETE /api/campaigns/:id - Soft delete campaign (Draft only)
 router.delete('/:id', handleAsyncError(async (req, res) => {
   const campaign = await Campaign.findByPk(req.params.id);
   
@@ -167,10 +171,10 @@ router.delete('/:id', handleAsyncError(async (req, res) => {
     ));
   }
   
-  await campaign.destroy();
-  
-  logger.info('Campaign deleted successfully', { campaignId: campaign.id, title: campaign.title });
-  res.json(successResponse(null, 'Campaign deleted successfully'));
+  // Soft delete: mark as Deleted state
+  await campaign.update({ state: 'Deleted' });
+  logger.info('Campaign soft-deleted (state=Deleted)', { campaignId: campaign.id, title: campaign.title });
+  res.json(successResponse(null, 'Campaign soft-deleted successfully'));
 }));
 
 // GET /api/campaigns/by-state/:state - Get campaigns by state
@@ -189,6 +193,36 @@ router.get('/by-state/:state', handleAsyncError(async (req, res) => {
   });
   
   res.json(successResponse(campaigns, `Found ${campaigns.length} campaigns in ${state} state`));
+}));
+
+// POST /api/campaigns/:id/duplicate - Duplicate an existing campaign into a new Draft
+router.post('/:id/duplicate', handleAsyncError(async (req, res) => {
+  const original = await Campaign.findByPk(req.params.id);
+  if (!original) {
+    return res.status(404).json(errorResponse('Campaign not found', 404));
+  }
+
+  try {
+    // Compose duplicate title
+    const dupTitle = `${original.title} (copy)`;
+
+    // Create new Draft campaign with copied configuration
+    const duplicate = await Campaign.create({
+      title: dupTitle,
+      state: 'Draft',
+      channels: Array.isArray(original.channels) ? [...original.channels] : [],
+      markets: original.markets,
+      channelConfig: original.channelConfig || {},
+      startDate: original.startDate || null,
+      endDate: original.endDate || null,
+    });
+
+    logger.info('Campaign duplicated successfully', { originalId: original.id, duplicateId: duplicate.id });
+    res.status(201).json(successResponse(duplicate, 'Campaign duplicated successfully'));
+  } catch (error) {
+    logger.warn('Campaign duplication failed', { originalId: req.params.id, error: error.message });
+    res.status(400).json(errorResponse('Failed to duplicate campaign', 400, error.message));
+  }
 }));
 
 module.exports = router;

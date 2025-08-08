@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../database/connection');
+const { generateCampaignId } = require('../utils/id');
 
 const Campaign = sequelize.define('Campaign', {
   id: {
@@ -10,7 +11,8 @@ const Campaign = sequelize.define('Campaign', {
   campaignId: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
+  unique: true,
+  defaultValue: () => generateCampaignId(),
     validate: {
       notEmpty: true,
       len: [1, 50]
@@ -25,7 +27,8 @@ const Campaign = sequelize.define('Campaign', {
     }
   },
   state: {
-    type: DataTypes.ENUM('Draft', 'Scheduled', 'Live', 'Complete'),
+    // Added 'Deleted' state for soft deletion of drafts
+    type: DataTypes.ENUM('Draft', 'Scheduled', 'Live', 'Complete', 'Deleted'),
     allowNull: false,
     defaultValue: 'Draft'
   },
@@ -90,6 +93,14 @@ const Campaign = sequelize.define('Campaign', {
 }, {
   tableName: 'campaigns',
   timestamps: true,
+  hooks: {
+    // Ensure campaignId is always set on creation
+    beforeValidate: async (campaign) => {
+      if (!campaign.campaignId) {
+        campaign.campaignId = generateCampaignId();
+      }
+    }
+  },
   validate: {
     // Custom validation for date ranges
     dateRangeValid() {

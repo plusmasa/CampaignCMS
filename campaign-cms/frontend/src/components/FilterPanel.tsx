@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Input,
   Dropdown,
@@ -23,7 +23,8 @@ export type DateFilterOption =
 
 const useStyles = makeStyles({
   panel: {
-    width: '300px',
+  width: '300px',
+  boxSizing: 'border-box',
     height: '100vh',
     backgroundColor: 'var(--colorNeutralBackground2)',
     borderLeft: '1px solid var(--colorNeutralStroke2)',

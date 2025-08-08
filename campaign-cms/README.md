@@ -4,16 +4,21 @@ A professional Node.js/Express backend system for managing marketing campaigns a
 
 ## 🚀 Current Status
 
-**Phase 4.5 Complete**: Frontend Customization and Refinement ✅
+**Phase 6 Complete**: Workflow and State Management ✅
+**Phase 5 Complete**: Campaign Detail View & Editor ✅
 - ✅ **Backend API**: Complete CRUD operations with comprehensive testing
 - ✅ **Frontend Dashboard**: Professional React UI with Microsoft Fluent 2
+- ✅ **Campaign Editor**: Full create/edit experience with state-aware actions
+- ✅ **Workflow Transitions**: Publish, Schedule, Unschedule, Stop with confirmations
+- ✅ **Timezone Display**: Pacific time for non-Draft states using Intl (DST-aware)
+- ✅ **Market Persistence**: Markets saved across state transitions
 - ✅ **Advanced Filtering**: Multi-dimensional filtering (search, state, market, channel, date)
 - ✅ **Column Visibility Controls**: Customizable DataGrid columns with toggle menu
 - ✅ **Date Filtering System**: Last 7/30/90/365 days plus custom date ranges
 - ✅ **Left Navigation**: Vertical nav for multi-page CMS structure
 - ✅ **Campaign ID System**: Unique structured campaign identifiers
 - ✅ **Bulk Upload UI**: Secondary button with upload icon in header
-- 🔄 **Next**: Ready for Phase 5 - Advanced Features and Backend Integration
+- 🔄 **Next**: Phase 7 – Channel configuration UI and reporting
 
 ## 📊 Key Metrics
 
@@ -38,11 +43,14 @@ backend/
 └── data/            # SQLite database
 ```
 
-### Frontend Architecture (Phase 4.5 ✅)
+### Frontend Architecture (Phase 6 ✅)
 - **React 18+ with TypeScript**: Full type safety and modern React patterns
 - **Microsoft Fluent 2**: Enterprise design system with professional components
 - **Vite Build Tool**: Fast development and optimized production builds
 - **Advanced Filtering System**: Multi-dimensional filtering with date ranges
+- **Campaign Editor**: State-aware actions (Publish, Schedule, Unschedule, Stop, Duplicate)
+- **Workflow UX**: Confirmation dialogs, toasts, and validations
+- **Timezone**: Display in America/Los_Angeles for non-Draft states
 - **Column Visibility Controls**: Customizable DataGrid with toggle menu
 - **Left Navigation**: Vertical navigation for multi-page CMS structure
 - **Campaign ID System**: Unique structured campaign identifiers
@@ -112,7 +120,7 @@ npm run dev:full
 - `GET /api/channels/:channel/config` - Get channel configuration
 - `PUT /api/campaigns/:id/channels/:channel` - Update channel config
 
-## 🎨 Frontend Features (Phase 4.5 Complete)
+## 🎨 Frontend Features (Phase 5 & 6 Complete)
 
 ### Dashboard Interface
 - **Campaign Listing**: Professional DataGrid with sorting and advanced filtering
@@ -125,8 +133,12 @@ npm run dev:full
 - **Responsive Design**: Optimized for desktop, tablet, and mobile
 
 ### Campaign Management
-- **Create Campaign**: Modal dialog with form validation
+- **Create/Edit Campaign**: Dedicated editor with Fluent UI components and validation
 - **Delete Campaign**: Confirmation dialog with safety checks (Draft only)
+- **Workflow Controls**: Publish now, Schedule for later, Unschedule, Stop
+- **Duplicate**: Secondary action adds “(copy)” and opens in a new tab
+- **Success Toasts**: Small notifications for state changes
+- **Timezone**: Pacific time display for scheduled/live states
 - **Campaign ID System**: Unique structured identifiers (CAMP-2025-XX-NNN)
 - **Bulk Upload UI**: Secondary button with upload icon for future CSV/Excel import
 - **Campaign Preview**: Detailed campaign information display
@@ -211,13 +223,10 @@ npm test -- campaigns.test.js
 
 ## 🚀 Next Steps
 
-**Ready for Phase 5**: Advanced Campaign Features
-- Campaign editing and detail views
-- Workflow state transitions (Draft → Scheduled → Live → Complete)
-- Bulk upload functionality implementation (CSV/Excel import)
-- Channel-specific configuration forms
-- Advanced reporting and analytics dashboard
-- Enhanced user experience and workflows
+**Ready for Phase 7**: Channel Configuration and Reporting
+- Channel-specific configuration forms and validation
+- Reporting dashboard and metrics per campaign/channel
+- Enhanced analytics and export features
 
 **Future Enhancements** (Phase 7.5):
 - LLM-powered intelligent search with natural language queries

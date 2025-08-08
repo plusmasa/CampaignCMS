@@ -3,7 +3,7 @@
 
 export const AVAILABLE_CHANNELS = ['Email', 'BNP', 'Rewards Dashboard'] as const;
 export const AVAILABLE_MARKETS = ['US', 'UK', 'CA', 'AU', 'DE', 'FR', 'JP'] as const;
-export const CAMPAIGN_STATES = ['Draft', 'Scheduled', 'Live', 'Complete'] as const;
+export const CAMPAIGN_STATES = ['Draft', 'Scheduled', 'Live', 'Complete', 'Deleted'] as const;
 
 // API endpoints
 export const API_ENDPOINTS = {

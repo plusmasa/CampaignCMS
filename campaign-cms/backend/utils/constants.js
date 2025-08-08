@@ -1,13 +1,16 @@
 // Shared constants
 const VALID_CHANNELS = ['Email', 'BNP', 'Rewards Dashboard'];
 const VALID_MARKETS = ['US', 'UK', 'CA', 'AU', 'DE', 'FR', 'JP'];
-const VALID_STATES = ['Draft', 'Scheduled', 'Live', 'Complete'];
+// Added 'Deleted' for soft-deleted drafts (not part of active workflow transitions)
+const VALID_STATES = ['Draft', 'Scheduled', 'Live', 'Complete', 'Deleted'];
 
 const STATE_TRANSITIONS = {
   Draft: ['Scheduled', 'Live'],
   Scheduled: ['Draft', 'Live'],
   Live: ['Complete'],
-  Complete: [] // Terminal state
+  Complete: [], // Terminal state
+  // Deleted is terminal and not exposed for normal transitions
+  Deleted: []
 };
 
 const CHANNEL_CONFIGS = {

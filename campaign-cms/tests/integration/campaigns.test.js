@@ -180,7 +180,7 @@ describe('Campaigns API Integration', () => {
   });
   
   describe('DELETE /api/campaigns/:id', () => {
-    it('should delete draft campaign', async () => {
+    it('should soft delete draft campaign (state set to Deleted)', async () => {
       const campaign = await Campaign.create({
         title: 'Draft Campaign',
         state: 'Draft',
@@ -193,10 +193,10 @@ describe('Campaigns API Integration', () => {
         .expect(200);
         
       expect(response.body.success).toBe(true);
-      
-      // Verify campaign is deleted
+      // Verify campaign is soft-deleted (state is 'Deleted')
       const deletedCampaign = await Campaign.findByPk(campaign.id);
-      expect(deletedCampaign).toBeNull();
+      expect(deletedCampaign).not.toBeNull();
+      expect(deletedCampaign.state || deletedCampaign.get('state')).toBe('Deleted');
     });
     
     it('should not delete non-draft campaign', async () => {
