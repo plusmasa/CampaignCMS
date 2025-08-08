@@ -74,4 +74,32 @@ describe('Campaigns API Integration - extra cases', () => {
     expect(res.body.data.title).toContain('(copy)');
     expect(res.body.data.state).toBe('Draft');
   });
+
+  it('GET /api/campaigns/:id returns 404 for non-existent campaign', async () => {
+    const res = await request(app)
+      .get('/api/campaigns/9999')
+      .expect(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toContain('Campaign not found');
+  });
+
+  it('GET /api/campaigns/by-state/:state returns 400 for invalid state', async () => {
+    const res = await request(app)
+      .get('/api/campaigns/by-state/UnknownState')
+      .expect(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toContain('Invalid state');
+  });
+
+  it('applies channel filter branch even when no campaigns match', async () => {
+    await Campaign.bulkCreate([
+      { title: 'NoEmail1', channels: ['BNP'], markets: ['US'] },
+      { title: 'NoEmail2', channels: ['Rewards Dashboard'], markets: ['UK'] }
+    ]);
+    const res = await request(app)
+      .get('/api/campaigns?channel=Email')
+      .expect(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveLength(0);
+  });
 });
