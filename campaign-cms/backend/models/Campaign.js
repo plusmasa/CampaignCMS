@@ -11,8 +11,8 @@ const Campaign = sequelize.define('Campaign', {
   campaignId: {
     type: DataTypes.STRING,
     allowNull: false,
-  unique: true,
-  defaultValue: () => generateCampaignId(),
+    unique: true,
+    defaultValue: () => generateCampaignId(),
     validate: {
       notEmpty: true,
       len: [1, 50]

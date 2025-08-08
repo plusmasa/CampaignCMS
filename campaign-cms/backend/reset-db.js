@@ -1,5 +1,5 @@
 const { sequelize } = require('./database/connection');
-const { initializeDatabase, seedDatabase } = require('./database/init');
+const { seedDatabase } = require('./database/init');
 
 async function resetDatabase() {
   try {

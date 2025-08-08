@@ -36,7 +36,7 @@ const handleAsyncError = (fn) => {
   };
 };
 
-const globalErrorHandler = (error, req, res, next) => {
+const globalErrorHandler = (error, req, res, _next) => {
   logger.error('Unhandled error', { 
     path: req.path, 
     method: req.method, 
