@@ -87,11 +87,14 @@ Console warnings
 
 - API route 404s from UI
    - Verify workflow paths match services:
+      - Transition: `PUT /api/workflow/campaigns/:id/transition`
       - Publish: `POST /api/workflow/publish/:id`
+      - Schedule: `POST /api/workflow/campaigns/:id/schedule`
       - Unschedule: `POST /api/workflow/unschedule/:id`
       - Reschedule: `POST /api/workflow/reschedule/:id`
       - Stop: `POST /api/workflow/stop/:id`
    - For CRUD, use `/api/campaigns` routes; do not mutate `state` via `PUT /api/campaigns/:id`.
+   - Note: Server-side workflow gating enforces channels present, Ajv-valid content config per type, unique variant markets, valid date ranges, and per-channel channelConfig required fields. Frontend pre-validates per-channel settings and surfaces errors inline to reduce 422s.
  
 - AI suggestions
    - Endpoint: `POST /api/ai/suggest` with body `{ type, sourceConfig, targetMarket }`

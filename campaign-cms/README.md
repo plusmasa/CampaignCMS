@@ -111,17 +111,16 @@ npm run dev:full
 - `DELETE /api/campaigns/:id` - Delete campaign (Draft only)
 
 ### Campaign Workflow
-- `PUT /api/campaigns/:id/workflow` - Transition campaign state
-- `POST /api/campaigns/:id/schedule` - Schedule campaign
-- `POST /api/campaigns/:id/stop` - Stop live campaign
+ `PUT /api/workflow/campaigns/:id/transition` - Transition campaign state (generic)
+ `POST /api/workflow/publish/:id` - Publish Draft (immediately Live or Scheduled if a future publishDate is provided)
+ `POST /api/workflow/campaigns/:id/schedule` - Schedule campaign (future start)
+ `POST /api/workflow/unschedule/:id` - Unschedule a Scheduled campaign back to Draft
+ `POST /api/workflow/reschedule/:id` - Change publish date of a Scheduled campaign (publishes immediately if past)
+ `POST /api/workflow/stop/:id` - Stop a Live campaign (mark Complete)
 
 ### Channel Management
-- `GET /api/channels` - Get available channels
-- `GET /api/channels/:channel/config` - Get channel configuration
-- `PUT /api/campaigns/:id/channels/:channel` - Update channel config
-
-## 🎨 Frontend Features (Phase 5 & 6 Complete)
-
+ - **Workflow Gating**: Server-side gating for Publish/Schedule/Reschedule (requires channels, valid content config per type, unique markets per variant, valid date ranges, and channelConfig required fields)
+ - **Client-side Channel Validation**: Pre-submit per-channel validation to surface missing/invalid settings before API calls
 ### Dashboard Interface
 - **Campaign Listing**: Professional DataGrid with sorting and advanced filtering
 - **Multi-Dimensional Filtering**: Search, state, market, channel, and date filtering

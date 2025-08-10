@@ -38,6 +38,7 @@ import type { UpdateCampaignRequest } from '../types/Campaign';
 import { LeftNavigation } from '../components/LeftNavigation';
 import { Header } from '../components/Header';
 import { AVAILABLE_MARKETS } from '../constants';
+import { validateChannelConfig } from '../utils/channelConfigValidation';
 import { typeLabel, hasMeaningfulConfig } from '../utils/campaignTypeHelpers';
 // Right rail will host campaign-specific controls soon
 
@@ -274,7 +275,7 @@ type QuizConfig = { questions?: QuizQuestion[] };
 type QuestAction = { key?: string; header?: string; description?: string; cooldownDays?: number | null; images?: { complete?: string; incomplete?: string } };
 type QuestConfig = { actions?: QuestAction[]; reward?: { type?: string; value?: string }; display?: { image?: string; header?: string; description?: string } };
 type AvailableType = { type: 'OFFER' | 'POLL' | 'QUIZ' | 'QUEST'; label: string; presets: Array<{ label: string; questionCount?: number }> };
-type ChannelConfig = { bingUrl?: string } & Record<string, unknown>;
+type ChannelSettings = { bingUrl?: string } & Record<string, unknown>;
 type AnyConfig = OfferConfig | PollConfig | QuizConfig | QuestConfig | Record<string, unknown>;
 type Variant = { id: string; market?: string; config: AnyConfig };
 
@@ -307,6 +308,8 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
   const [aiSourceIndex, setAiSourceIndex] = useState<number | null>(null);
   const [aiTargetMarket, setAiTargetMarket] = useState<string>('');
   const [aiBusy, setAiBusy] = useState(false);
+  // Client-side per-channel validation errors
+  const [channelErrors, setChannelErrors] = useState<string[]>([]);
   // Type management
   const [changingType, setChangingType] = useState(false);
   const [newType, setNewType] = useState<'OFFER' | 'POLL' | 'QUIZ' | 'QUEST'>('OFFER');
@@ -430,7 +433,7 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
           nextVariants = [{ id: String(Date.now()), market: inferredMarket, config: (resp.data.config ?? {}) as AnyConfig }];
         }
         setVariantsDraft(nextVariants);
-        const cc = (resp.data.channelConfig as ChannelConfig | undefined) ?? {};
+  const cc = (resp.data.channelConfig as ChannelSettings | undefined) ?? {};
         setBingUrl(cc.bingUrl ?? '');
       } else {
         setError(resp.message || 'Failed to load campaign');
@@ -463,7 +466,7 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
             setTitleDraft(resp.data.title);
             // Initialize single empty variant for new draft
             setVariantsDraft([{ id: String(Date.now()), market: undefined, config: (resp.data.config ?? {}) as AnyConfig }]);
-            const cc = (resp.data.channelConfig as ChannelConfig | undefined) ?? {};
+            const cc = (resp.data.channelConfig as ChannelSettings | undefined) ?? {};
             setBingUrl(cc.bingUrl ?? '');
             // Navigate to canonical route to prevent future re-creates on re-mounts
             navigate(`/campaigns/${resp.data.id}`, { replace: true });
@@ -604,9 +607,9 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
         payload.endDate = isoEnd;
       }
   // Persist Bing URL into channelConfig, preserving any other keys
-  const nextChannelConfig: ChannelConfig = { ...((campaign.channelConfig as ChannelConfig | undefined) ?? {}) };
+  const nextChannelConfig: ChannelSettings = { ...((campaign.channelConfig as ChannelSettings | undefined) ?? {}) };
   nextChannelConfig.bingUrl = bingUrl;
-  (payload as unknown as { channelConfig?: ChannelConfig }).channelConfig = nextChannelConfig;
+  (payload as unknown as { channelConfig?: ChannelSettings }).channelConfig = nextChannelConfig;
       await campaignService.updateCampaign(campaign.id, payload);
       await loadCampaign(campaign.id);
     } catch (e) {
@@ -679,6 +682,17 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
     if (!campaign) return;
     try {
       setPublishing(true);
+      // Client-side channelConfig validation before any API calls
+  const nextChannelConfig: ChannelSettings = { ...((campaign.channelConfig as ChannelSettings | undefined) ?? {}) };
+      nextChannelConfig.bingUrl = bingUrl;
+  const chanErrors = validateChannelConfig(campaign.channels as unknown as Campaign['channels'], nextChannelConfig as unknown as Record<string, Record<string, unknown>>);
+      if (chanErrors.length > 0) {
+        setChannelErrors(chanErrors);
+        setError('Please fix channel settings before publishing.');
+        return;
+      } else {
+        setChannelErrors([]);
+      }
   // 1) Save content first so read-only mode reflects latest inputs
   const cfgResp = await campaignService.updateConfig(campaign.id, { variants: variantsDraft.map(v => ({ market: v.market, config: v.config })) });
       if (!cfgResp.success) {
@@ -687,8 +701,7 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
       }
 
       // 2) Persist markets and channel settings (e.g., Bing URL)
-      const nextChannelConfig: ChannelConfig = { ...((campaign.channelConfig as ChannelConfig | undefined) ?? {}) };
-      nextChannelConfig.bingUrl = bingUrl;
+  // nextChannelConfig already prepared above
 
       // 3) Compute endDate if needed for immediate publish
       let endIso: string | null | undefined = undefined;
@@ -711,7 +724,7 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
         endIso = null; // explicitly clear end date
       }
 
-      const updatePayload: Partial<UpdateCampaignRequest> & { channelConfig?: ChannelConfig } = {
+  const updatePayload: Partial<UpdateCampaignRequest> & { channelConfig?: ChannelSettings } = {
         channelConfig: nextChannelConfig,
       };
       if (endIso !== undefined) {
@@ -746,6 +759,17 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
     try {
       if (!startDateLocal) return; // guard
       setScheduling(true);
+      // Client-side channelConfig validation before any API calls
+  const nextChannelConfig: ChannelSettings = { ...((campaign.channelConfig as ChannelSettings | undefined) ?? {}) };
+      nextChannelConfig.bingUrl = bingUrl;
+  const chanErrors = validateChannelConfig(campaign.channels as unknown as Campaign['channels'], nextChannelConfig as unknown as Record<string, Record<string, unknown>>);
+      if (chanErrors.length > 0) {
+        setChannelErrors(chanErrors);
+        setError('Please fix channel settings before scheduling.');
+        return;
+      } else {
+        setChannelErrors([]);
+      }
   // 1) Save content first so read-only mode reflects latest inputs
   const cfgResp = await campaignService.updateConfig(campaign.id, { variants: variantsDraft.map(v => ({ market: v.market, config: v.config })) });
       if (!cfgResp.success) {
@@ -754,8 +778,6 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
       }
 
       // 2) Persist markets and channel settings before scheduling
-      const nextChannelConfig: ChannelConfig = { ...((campaign.channelConfig as ChannelConfig | undefined) ?? {}) };
-      nextChannelConfig.bingUrl = bingUrl;
   await campaignService.updateCampaign(campaign.id, { channelConfig: nextChannelConfig } as UpdateCampaignRequest);
       // Convert selected local PST date/time to ISO UTC
       const [hh, mm] = startTime.split(':').map(Number);
@@ -1263,6 +1285,13 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                                   <Field label="Bing URL">
                                     <Input value={bingUrl} onChange={(_, d) => setBingUrl(d.value)} placeholder="https://www.bing.com/..." />
                                   </Field>
+                                  {channelErrors.length > 0 && (
+                                    <div>
+                                      {channelErrors.map((e, i) => (
+                                        <Text key={i} className={styles.railError}>{e}</Text>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </Card>
@@ -1375,8 +1404,15 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                                   {/* Bing URL (global) */}
                                   <div className={styles.formRow}>
                                     <Field label="Bing URL">
-                                      <Text size={400} className={styles.infoValue}>{dashIfEmpty(((campaign.channelConfig as ChannelConfig | undefined)?.bingUrl) ?? '')}</Text>
+                                      <Text size={400} className={styles.infoValue}>{dashIfEmpty(((campaign.channelConfig as ChannelSettings | undefined)?.bingUrl) ?? '')}</Text>
                                     </Field>
+                                    {channelErrors.length > 0 && (
+                                      <div>
+                                        {channelErrors.map((e, i) => (
+                                          <Text key={i} className={styles.railError}>{e}</Text>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </Card>

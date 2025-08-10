@@ -88,7 +88,8 @@ describe('Campaign Workflow Routes', () => {
       const mockCampaign = {
         id: 1,
         state: 'Draft',
-        channels: ['Email'],
+  channels: ['Email'],
+  channelConfig: { Email: { subject: 'Hello', bodyContent: 'World' } },
         type: 'OFFER',
         config: { banners: [{ imageUrl: '', header: '', description: '' }] },
         startDate: null,
@@ -127,6 +128,30 @@ describe('Campaign Workflow Routes', () => {
       expect(response.status).toBe(400);
       expect(response.body.success).toBe(false);
       expect(response.body.message).toContain('future');
+    });
+
+    it('should fail gating when required channelConfig fields are missing', async () => {
+      const mockCampaign = {
+        id: 3,
+        state: 'Draft',
+        channels: ['Email'],
+        channelConfig: { Email: { subject: '' } },
+        type: 'OFFER',
+        config: { banners: [{ imageUrl: '', header: '', description: '' }] },
+        save: jest.fn().mockResolvedValue(true)
+      };
+
+      Campaign.findByPk.mockResolvedValue(mockCampaign);
+
+      const startDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+      const response = await request(app)
+        .post('/api/workflow/campaigns/3/schedule')
+        .send({ startDate });
+
+      expect(response.status).toBe(422);
+      expect(response.body.success).toBe(false);
+      expect(response.body.errors.join(' ')).toMatch(/Email: .*required/);
     });
   });
 

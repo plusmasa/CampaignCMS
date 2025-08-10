@@ -2,9 +2,11 @@ const { Sequelize } = require('sequelize');
 const path = require('path');
 
 // Create SQLite database connection
+const isTest = process.env.NODE_ENV === 'test';
 const sequelize = new Sequelize({
   dialect: 'sqlite',
-  storage: path.join(__dirname, '../data/campaign_cms.sqlite'),
+  // Use in-memory DB for tests to avoid cross-process file locking during parallel Jest workers
+  storage: isTest ? ':memory:' : path.join(__dirname, '../data/campaign_cms.sqlite'),
   logging: process.env.NODE_ENV === 'development' ? console.log : false,
 });
 

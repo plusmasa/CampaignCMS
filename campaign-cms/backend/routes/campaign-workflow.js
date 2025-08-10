@@ -1,7 +1,7 @@
 const express = require('express');
 const { Campaign } = require('../models');
 const router = express.Router();
-const { STATE_TRANSITIONS } = require('../utils/constants');
+const { STATE_TRANSITIONS, CHANNEL_CONFIGS } = require('../utils/constants');
 const { validateConfig } = require('../utils/campaignSchema');
 const { validateDateRange } = require('../utils/validation');
 
@@ -33,6 +33,38 @@ function getPublishabilityErrors(campaign) {
         errors.push(`Duplicate market across variants: ${v.market}`);
       } else {
         seen.add(v.market);
+      }
+    }
+  }
+
+  // Validate per-channel required fields using CHANNEL_CONFIGS
+  if (Array.isArray(campaign.channels) && campaign.channels.length > 0) {
+    const cc = campaign.channelConfig || {};
+    for (const ch of campaign.channels) {
+      const meta = CHANNEL_CONFIGS[ch];
+      if (!meta || !meta.configFields) continue; // unknown channel: skip
+      const provided = cc[ch] || {};
+      for (const [fieldKey, spec] of Object.entries(meta.configFields)) {
+        const { required, label, type } = spec;
+        if (required) {
+          const v = provided[fieldKey];
+          const missing = v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
+          if (missing) {
+            errors.push(`Channel ${ch}: ${label || fieldKey} is required`);
+            continue;
+          }
+        }
+        // Light type checks for email/url if provided
+        const v = provided[fieldKey];
+        if (v !== undefined && v !== null && typeof v === 'string' && v.trim() !== '') {
+          if (type === 'email') {
+            const emailOk = /.+@.+\..+/.test(v);
+            if (!emailOk) errors.push(`Channel ${ch}: ${label || fieldKey} must be a valid email`);
+          } else if (type === 'url') {
+            const urlOk = /^(https?:\/\/|\/\/|\/).+/.test(v);
+            if (!urlOk) errors.push(`Channel ${ch}: ${label || fieldKey} must be a valid URL`);
+          }
+        }
       }
     }
   }

@@ -15,6 +15,8 @@ All notable changes to this project will be documented in this file.
 	- New endpoint: `POST /api/ai/suggest` returns a suggested variant `{ market, config }` for a target market
 	- Frontend modal flow to generate and insert suggested variants; prevents duplicate markets
 - Workflow/publish fixes: Save config and channel settings before publish/schedule, compute end date defaults, then transition state
+ - Workflow gating: Server-side gating added for Publish/Schedule/Reschedule requiring channels, Ajv-valid content, unique variant markets, valid date ranges, and per-channel channelConfig required fields with light type checks
+ - Frontend validation: Client-side per-channel validation added to Campaign Editor to surface errors before API submission
 - Run & troubleshooting
 	- Verified dev servers: Frontend on http://localhost:3000, Backend on http://localhost:3001
 	- Resolved port EADDRINUSE on 3001; added notes to Runbook about starting from `campaign-cms/` project root

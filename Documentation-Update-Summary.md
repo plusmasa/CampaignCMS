@@ -1,3 +1,16 @@
+## 2025-08-10
+
+Updates reflecting recent workflow gating and frontend validation work:
+
+- Backend: Added server-side workflow gating in `backend/routes/campaign-workflow.js` for publish/schedule/reschedule
+  - Requires at least one channel, valid Ajv content config per type, unique markets across variants, valid date ranges
+  - New: Per-channel channelConfig required-field checks with light type validation (email/url)
+- Frontend: Client-side per-channel validation to surface errors before submitting publish/schedule
+  - Added `src/constants/channelConfigs.ts` as a mirror of backend channel specs
+  - Added `src/utils/channelConfigValidation.ts` and wired into `CampaignEditor` publish/schedule flows
+  - Inline error messages displayed near channel settings area
+- Docs: Updated `campaign-cms/README.md` workflow endpoints and technical features; this summary documents changes
+
 # � Deprecated: See CHANGELOG.md
 
 This file is deprecated in favor of a unified CHANGELOG.md. The historical content remains below for reference.

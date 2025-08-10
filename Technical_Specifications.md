@@ -183,10 +183,13 @@ Based on the requirements in our PRD, this document outlines the technical stack
 - `DELETE /api/campaigns/:id` - Delete campaign (Draft state only)
 
 ### Campaign Workflow Management
-- `PUT /api/campaigns/:id/workflow` - Transition campaign state (Draft → Scheduled → Live → Complete)
-- `GET /api/campaigns/:id/workflow/history` - Get state transition history
-- `POST /api/campaigns/:id/schedule` - Schedule campaign with validation
-- `POST /api/campaigns/:id/stop` - Stop live campaign
+- `PUT /api/workflow/campaigns/:id/transition` - Transition campaign state (Draft → Scheduled → Live → Complete)
+- `GET /api/workflow/campaigns/:id/history` - Get state transition history
+- `POST /api/workflow/campaigns/:id/schedule` - Schedule campaign with validation
+- `POST /api/workflow/publish/:id` - Publish Draft (immediate or scheduled with future publishDate)
+- `POST /api/workflow/unschedule/:id` - Unschedule a Scheduled campaign
+- `POST /api/workflow/reschedule/:id` - Change publish date (publishes immediately if past)
+- `POST /api/workflow/campaigns/:id/stop` - Stop live campaign
 
 ### Channel Management
 - `GET /api/channels` - Get available channels and their configurations
@@ -220,6 +223,17 @@ Based on the requirements in our PRD, this document outlines the technical stack
 **Variants Support**
 - `config` can be either a legacy single-config object or an object with `variants` array: `{ variants: Array<{ id, market, config }> }`.
 - When variants are present, the server derives `campaign.markets` from the unique set of variant markets during `PUT /api/campaigns/:id/config`.
+
+**Workflow Gating**
+- Server-side gating enforced on publish/schedule/reschedule:
+  - At least one channel selected
+  - Ajv-valid type-specific content config
+  - Unique markets across variants and all variants have a market
+  - Valid date ranges (start < end when present; future start for scheduling)
+  - Per-channel channelConfig required fields (light email/url checks)
+
+**Frontend Validation**
+- Client-side per-channel validation mirrors backend rules and surfaces errors inline prior to submission to reduce 422 responses.
 
 ### Reports Table (Future Implementation)
 - `id` (Primary Key)
