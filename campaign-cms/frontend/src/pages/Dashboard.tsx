@@ -465,7 +465,7 @@ export const Dashboard: React.FC = () => {
               >
                 Bulk Upload Campaigns
               </Button>
-              <Button appearance="primary" onClick={() => window.open('/campaigns/new/draft', '_blank')}>New Campaign</Button>
+              <Button appearance="primary" onClick={() => window.open('/campaigns/new', '_blank')}>New Campaign</Button>
             </div>
           }
         />
@@ -526,7 +526,7 @@ export const Dashboard: React.FC = () => {
               >
                 Bulk Upload Campaigns
               </Button>
-              <Button appearance="primary" onClick={() => window.open('/campaigns/new/draft', '_blank')}>New Campaign</Button>
+              <Button appearance="primary" onClick={() => window.open('/campaigns/new', '_blank')}>New Campaign</Button>
             </div>
           }
         />

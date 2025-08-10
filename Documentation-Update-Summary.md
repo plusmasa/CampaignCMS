@@ -1,4 +1,8 @@
-# 📋 Documentation Update Summary - Phase 3.5 Complete
+# � Deprecated: See CHANGELOG.md
+
+This file is deprecated in favor of a unified CHANGELOG.md. The historical content remains below for reference.
+
+# �📋 Documentation Update Summary - Phase 3.5 Complete
 
 ## ✅ Documentation Files Updated
 

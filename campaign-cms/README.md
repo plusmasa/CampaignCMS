@@ -6,20 +6,15 @@ A professional Node.js/Express backend system for managing marketing campaigns a
 
 **Phase 6 Complete**: Workflow and State Management ✅
 **Phase 5 Complete**: Campaign Detail View & Editor ✅
-- ✅ **Backend API**: Complete CRUD operations with comprehensive testing
-- ✅ **Frontend Dashboard**: Professional React UI with Microsoft Fluent 2
-- ✅ **Campaign Editor**: Full create/edit experience with state-aware actions
-- ✅ **Workflow Transitions**: Publish, Schedule, Unschedule, Stop with confirmations
-- ✅ **Timezone Display**: Pacific time for non-Draft states using Intl (DST-aware)
-- ✅ **Market Persistence**: Markets saved across state transitions
-- ✅ **Advanced Filtering**: Multi-dimensional filtering (search, state, market, channel, date)
-- ✅ **Column Visibility Controls**: Customizable DataGrid columns with toggle menu
-- ✅ **Date Filtering System**: Last 7/30/90/365 days plus custom date ranges
-- ✅ **Left Navigation**: Vertical nav for multi-page CMS structure
-- ✅ **Campaign ID System**: Unique structured campaign identifiers
-- ✅ **Bulk Upload UI**: Secondary button with upload icon in header
-- 🔄 **Next**: Phase 7 – Channel configuration UI and reporting
+## 🚀 Current Status
 
+**Multi-market variants editor**: Draft supports multiple market variants per campaign ✅
+**AI suggestions**: Local endpoint to suggest variant content for a target market ✅
+**Phase 6 Complete**: Workflow and State Management ✅
+**Phase 5 Complete**: Campaign Detail View & Editor ✅
+	- Variants: add/duplicate/delete, per-variant market selection, uniqueness guard
+	- Read-only rendering shows all persisted variants by market
+ 🌀 **Next**: Phase 7 – Channel configuration UI and reporting
 ## 📊 Key Metrics
 
 | Metric | Status |
@@ -29,9 +24,14 @@ A professional Node.js/Express backend system for managing marketing campaigns a
 | **Frontend Components** | Professional React components with Fluent 2 |
 | **Advanced Filtering** | Multi-dimensional search and date filtering |
 | **Type Safety** | Full TypeScript integration |
+
+If you see “Error Loading Campaigns,” ensure the backend runs from the `campaign-cms/` project root and check http://localhost:3001/api/health
 | **Architecture** | Clean separation of concerns, DRY compliant |
 
 ## 🏗️ Architecture
+### AI Suggestions
+- `POST /api/ai/suggest` – Suggest a new variant for a target market; request body: `{ type, sourceConfig, targetMarket }`
+
 
 ### Backend Structure
 ```

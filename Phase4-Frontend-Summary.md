@@ -1,3 +1,7 @@
+# 📌 Deprecated: See CHANGELOG.md
+
+This per-phase summary has been consolidated into the unified CHANGELOG.md. Historical content remains below.
+
 # 🎉 Phase 4 Complete: Frontend Dashboard with Microsoft Fluent 2
 
 ## ✅ What We Accomplished

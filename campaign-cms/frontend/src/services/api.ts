@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Campaign, CreateCampaignRequest, UpdateCampaignRequest, ApiResponse, PaginatedResponse, CampaignFilters } from '../types/Campaign';
+import type { Campaign, CreateCampaignRequest, UpdateCampaignRequest, ApiResponse, PaginatedResponse, CampaignFilters, CampaignType, CreateCampaignWithTypeRequest } from '../types/Campaign';
 
 // Get API base URL from environment variables with fallback
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
@@ -56,7 +56,7 @@ export const campaignService = {
   },
 
   // Create new campaign
-  async createCampaign(campaign: CreateCampaignRequest): Promise<ApiResponse<Campaign>> {
+  async createCampaign(campaign: CreateCampaignRequest | CreateCampaignWithTypeRequest): Promise<ApiResponse<Campaign>> {
     const response = await apiClient.post('/campaigns', campaign);
     return response.data;
   },
@@ -76,6 +76,25 @@ export const campaignService = {
   // Duplicate campaign -> creates a new Draft copied from the original
   async duplicateCampaign(id: number): Promise<ApiResponse<Campaign>> {
     const response = await apiClient.post(`/campaigns/${id}/duplicate`);
+    return response.data;
+  },
+
+  // Update type-specific config
+  async updateConfig(id: number, config: unknown): Promise<ApiResponse<{ updatedAt: string }>> {
+    const response = await apiClient.put(`/campaigns/${id}/config`, { config });
+    return response.data;
+  },
+
+  // Duplicate, optionally convert to another type
+  async duplicateAsType(id: number, type?: CampaignType): Promise<ApiResponse<Campaign>> {
+    const path = type ? `/campaigns/${id}/duplicate?type=${type}` : `/campaigns/${id}/duplicate`;
+    const response = await apiClient.post(path);
+    return response.data;
+  },
+
+  // Change type (only allowed for empty Drafts)
+  async changeType(id: number, type: CampaignType, preset?: { questionCount?: number }): Promise<ApiResponse<null>> {
+    const response = await apiClient.patch(`/campaigns/${id}/type`, { type, preset });
     return response.data;
   },
 
@@ -121,6 +140,20 @@ export const healthService = {
 
   async checkDatabaseHealth(): Promise<ApiResponse<{ status: string }>> {
     const response = await apiClient.get('/db-health');
+    return response.data;
+  },
+};
+
+export const typesService = {
+  async getTypes(): Promise<ApiResponse<Array<{ type: CampaignType; label: string; presets: Array<{ label: string; questionCount?: number }> }>>> {
+    const response = await apiClient.get('/campaign-types');
+    return response.data;
+  },
+};
+
+export const aiService = {
+  async suggestVariant(type: CampaignType, sourceConfig: unknown, targetMarket: string): Promise<ApiResponse<{ market: string; config: unknown }>> {
+    const response = await apiClient.post('/ai/suggest', { type, sourceConfig, targetMarket });
     return response.data;
   },
 };

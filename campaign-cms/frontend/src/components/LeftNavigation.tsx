@@ -10,6 +10,7 @@ import {
   Handshake24Regular,
   DataTrending24Regular,
   ImageMultiple24Regular,
+  SparkleAction24Regular,
 } from '@fluentui/react-icons';
 
 const useStyles = makeStyles({
@@ -75,6 +76,12 @@ export const LeftNavigation: React.FC<LeftNavigationProps> = ({
   const styles = useStyles();
 
   const navigationItems: NavigationItem[] = [
+    {
+      id: 'ai-creator',
+  label: 'AI Creator',
+      icon: <SparkleAction24Regular />,
+      // placeholder: no navigation target yet
+    },
     {
       id: 'campaigns',
       label: 'Campaigns',

@@ -22,6 +22,8 @@ async function seedDatabase() {
       {
         campaignId: 'CAMP-2025-SS-001',
         title: 'Summer Sale 2025',
+        type: 'OFFER',
+        templateVersion: 1,
         state: 'Draft',
         channels: ['Email', 'BNP'],
         markets: ['US', 'CA'],
@@ -30,11 +32,14 @@ async function seedDatabase() {
         channelConfig: {
           Email: { template: 'summer_sale_template' },
           BNP: { position: 'hero', priority: 'high' }
-        }
+        },
+        config: { banners: [{ imageUrl: '', header: '', description: '' }] }
       },
       {
         campaignId: 'CAMP-2025-BTS-002',
         title: 'Back to School Campaign',
+        type: 'OFFER',
+        templateVersion: 1,
         state: 'Scheduled',
         channels: ['Email', 'Rewards Dashboard'],
         markets: 'all',
@@ -43,11 +48,14 @@ async function seedDatabase() {
         channelConfig: {
           Email: { template: 'back_to_school_template' },
           'Rewards Dashboard': { section: 'featured' }
-        }
+        },
+        config: { banners: [{ imageUrl: '', header: '', description: '' }] }
       },
       {
         campaignId: 'CAMP-2025-HP-003',
         title: 'Holiday Preview',
+        type: 'OFFER',
+        templateVersion: 1,
         state: 'Live',
         channels: ['BNP', 'Rewards Dashboard'],
         markets: ['US', 'UK', 'CA'],
@@ -56,12 +64,14 @@ async function seedDatabase() {
         channelConfig: {
           BNP: { position: 'sidebar', priority: 'medium' },
           'Rewards Dashboard': { section: 'seasonal' }
-        }
-      }
-      ,
+        },
+        config: { banners: [{ imageUrl: '', header: '', description: '' }] }
+      },
       {
         campaignId: 'CAMP-2025-CMP-004',
         title: 'Spring Wrap-up',
+        type: 'OFFER',
+        templateVersion: 1,
         state: 'Complete',
         channels: ['Email'],
         markets: ['DE', 'FR'],
@@ -69,7 +79,8 @@ async function seedDatabase() {
         endDate: new Date('2025-04-01'),
         channelConfig: {
           Email: { template: 'newsletter' }
-        }
+        },
+        config: { banners: [{ imageUrl: '', header: '', description: '' }] }
       }
     ];
     

@@ -282,6 +282,22 @@ This document outlines the phase### Phase 4: Frontend Dashboard Development (STA
 - ✅ Confirmation dialogs in place for destructive/irreversible actions
 - ✅ Error handling prevents invalid transitions
 
+### Phase 6.5: Campaign Structure Restructure (Planning + Contracts)
+**Goal**: Plan and specify the new multi-type campaign structure without coding changes yet.
+
+**Deliverables**:
+- New PRD: CampaignStructurePlan.md (read for details)
+- Data model guidance: add type (enum), templateVersion, and type-specific JSON config columns
+- API contracts: create with type/preset, update config with schema validation, duplicate-as-new-type, optional type-change rule for empty drafts
+- Migration outline: default existing to type=OFFER and backfill config
+
+**Success Criteria**:
+- Plan document reviewed and approved
+- Migration approach agreed
+- Endpoint specs finalized for next phase
+
+**Read**: See CampaignStructurePlan.md for full technical details
+
 ## Phase 7: Channel Configuration and Reporting
 **Goal**: Implement channel-specific configurations and reporting
 **Deliverables**:

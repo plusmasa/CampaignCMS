@@ -18,6 +18,18 @@ const Campaign = sequelize.define('Campaign', {
       len: [1, 50]
     }
   },
+  // New discriminator for multi-type campaigns
+  type: {
+    type: DataTypes.ENUM('OFFER', 'POLL', 'QUIZ', 'QUEST'),
+    allowNull: false,
+    defaultValue: 'OFFER'
+  },
+  // Version of the seeded template/schema for the campaign type
+  templateVersion: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1
+  },
   title: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -80,6 +92,12 @@ const Campaign = sequelize.define('Campaign', {
   channelConfig: {
     type: DataTypes.JSON,
     allowNull: true,
+    defaultValue: {}
+  },
+  // Generic type-specific configuration JSON (discriminated by `type`)
+  config: {
+    type: DataTypes.JSON,
+    allowNull: false,
     defaultValue: {}
   },
   createdAt: {

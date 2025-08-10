@@ -47,7 +47,7 @@ Based on the requirements in our PRD, this document outlines the technical stack
 **Port Configuration Summary:**
 - Development: Backend (3001) + Frontend Dev Server (3000) running simultaneously
 - Production: Backend (3001) serves both API and static frontend files
-- Frontend makes API calls to `http://localhost:3001/api/*` in both modes
+- Frontend makes API calls to `http://localhost:3001/api/*` in development (or uses `VITE_API_BASE_URL` if set), and `/api/*` in production (same origin)
 
 ### Configuration Management
 **Environment Variables with dotenv**
@@ -199,6 +199,9 @@ Based on the requirements in our PRD, this document outlines the technical stack
 - `GET /api/campaigns/:id/reports/:channel` - Get channel-specific reports
 - `POST /api/campaigns/:id/reports/generate` - Generate new report
 
+-### AI Suggestions
+- `POST /api/ai/suggest` – Suggest a market-specific variant based on a source config and campaign type
+
 ## Database Schema
 ### Campaigns Table
 - `id` (Primary Key, Auto-increment)
@@ -213,6 +216,10 @@ Based on the requirements in our PRD, this document outlines the technical stack
 - `updatedAt` (DateTime)
 
 **Note**: Channel-specific timing (individual email send dates, banner display periods) will be implemented in a future phase as separate tables or extended JSON schema.
+
+**Variants Support**
+- `config` can be either a legacy single-config object or an object with `variants` array: `{ variants: Array<{ id, market, config }> }`.
+- When variants are present, the server derives `campaign.markets` from the unique set of variant markets during `PUT /api/campaigns/:id/config`.
 
 ### Reports Table (Future Implementation)
 - `id` (Primary Key)

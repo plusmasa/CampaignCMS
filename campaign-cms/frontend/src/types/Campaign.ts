@@ -2,6 +2,8 @@
 export interface Campaign {
   id: number;
   campaignId: string;
+  type?: CampaignType;
+  templateVersion?: number;
   title: string;
   state: CampaignState;
   startDate?: string;
@@ -9,6 +11,7 @@ export interface Campaign {
   channels: Channel[];
   markets: string | string[]; // "all" or array of market codes
   channelConfig: Record<string, unknown>;
+  config?: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -17,6 +20,8 @@ export type CampaignState = 'Draft' | 'Scheduled' | 'Live' | 'Complete' | 'Delet
 
 export type Channel = 'Email' | 'BNP' | 'Rewards Dashboard';
 
+export type CampaignType = 'OFFER' | 'POLL' | 'QUIZ' | 'QUEST';
+
 export interface CreateCampaignRequest {
   title: string;
   channels: Channel[];
@@ -24,6 +29,11 @@ export interface CreateCampaignRequest {
   startDate?: string;
   endDate?: string;
   channelConfig?: Record<string, unknown>;
+}
+
+export interface CreateCampaignWithTypeRequest extends CreateCampaignRequest {
+  type: CampaignType;
+  preset?: { questionCount?: number };
 }
 
 export interface UpdateCampaignRequest extends Partial<CreateCampaignRequest> {
