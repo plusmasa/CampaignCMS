@@ -61,4 +61,17 @@ describe('AI Suggest Route', () => {
     expect(cfg.questions.length).toBeGreaterThanOrEqual(3);
     expect(cfg.questions[0].prompt).toMatch(/ — CA$/);
   });
+
+  it('generates QUEST suggestion with 4 actions and annotated fields', async () => {
+    const res = await request(app)
+      .post('/api/ai/suggest')
+      .send({ type: 'QUEST', targetMarket: 'DE', sourceConfig: {} });
+    expect(res.status).toBe(200);
+    const cfg = res.body.data.config;
+    expect(Array.isArray(cfg.actions)).toBe(true);
+    expect(cfg.actions.length).toBe(4);
+    // display fields should be strings (possibly annotated)
+    expect(typeof cfg.display.header).toBe('string');
+    expect(typeof cfg.actions[0].header).toBe('string');
+  });
 });
