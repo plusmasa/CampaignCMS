@@ -88,6 +88,9 @@ describe('Campaign Workflow Routes', () => {
       const mockCampaign = {
         id: 1,
         state: 'Draft',
+        channels: ['Email'],
+        type: 'OFFER',
+        config: { banners: [{ imageUrl: '', header: '', description: '' }] },
         startDate: null,
         endDate: null,
         save: jest.fn().mockResolvedValue(true)

@@ -2,6 +2,43 @@ const express = require('express');
 const { Campaign } = require('../models');
 const router = express.Router();
 const { STATE_TRANSITIONS } = require('../utils/constants');
+const { validateConfig } = require('../utils/campaignSchema');
+const { validateDateRange } = require('../utils/validation');
+
+// Helper: strict checks required before moving a Draft to Scheduled/Live
+function getPublishabilityErrors(campaign) {
+  const errors = [];
+
+  // Require at least one channel selected
+  if (!Array.isArray(campaign.channels) || campaign.channels.length === 0) {
+    errors.push('At least one channel must be selected before publishing.');
+  }
+
+  // Validate type-specific config with Ajv
+  const { valid, errors: ajvErrors } = validateConfig(campaign.type || 'OFFER', campaign.config || {});
+  if (!valid) {
+    const details = (ajvErrors || []).map(e => (typeof e === 'string' ? e : e.message)).filter(Boolean);
+    errors.push('Content configuration is invalid.', ...details);
+  }
+
+  // If using variants, require every variant to have a market and be unique
+  const cfg = campaign.config || {};
+  if (cfg && typeof cfg === 'object' && Array.isArray(cfg.variants)) {
+    const seen = new Set();
+    for (let i = 0; i < cfg.variants.length; i++) {
+      const v = cfg.variants[i] || {};
+      if (!v.market || typeof v.market !== 'string' || !v.market.trim()) {
+        errors.push(`Variant #${i + 1} must have a market assigned.`);
+      } else if (seen.has(v.market)) {
+        errors.push(`Duplicate market across variants: ${v.market}`);
+      } else {
+        seen.add(v.market);
+      }
+    }
+  }
+
+  return errors;
+}
 
 // PUT /api/workflow/campaigns/:id/transition - generic state transition with validation
 router.put('/campaigns/:id/transition', async (req, res) => {
@@ -36,6 +73,16 @@ router.post('/campaigns/:id/schedule', async (req, res) => {
     const { startDate, endDate } = req.body || {};
     if (!startDate || new Date(startDate) <= new Date()) {
       return res.status(400).json({ success: false, message: 'Start date must be in the future' });
+    }
+    try {
+      validateDateRange(startDate, endDate || null);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+    // Gating: ensure publishable after valid date range
+    const gatingErrors = getPublishabilityErrors(campaign);
+    if (gatingErrors.length > 0) {
+      return res.status(422).json({ success: false, message: 'Schedule gating failed', errors: gatingErrors });
     }
     campaign.state = 'Scheduled';
     campaign.startDate = new Date(startDate);
@@ -103,7 +150,13 @@ router.post('/publish/:id', async (req, res) => {
       });
     }
 
-    const { publishDate } = req.body;
+    // Gating: ensure publishable content and setup
+    const gatingErrors = getPublishabilityErrors(campaign);
+    if (gatingErrors.length > 0) {
+      return res.status(422).json({ success: false, message: 'Publish gating failed', errors: gatingErrors });
+    }
+
+    const { publishDate, endDate } = req.body || {};
     const now = new Date();
     let newState, startDate;
 
@@ -117,9 +170,19 @@ router.post('/publish/:id', async (req, res) => {
       startDate = new Date(publishDate);
     }
 
+    // Optional endDate validation
+    if (endDate) {
+      try {
+        validateDateRange(startDate, endDate);
+      } catch (e) {
+        return res.status(400).json({ success: false, message: e.message });
+      }
+    }
+
     await campaign.update({
       state: newState,
-      startDate: startDate
+      startDate: startDate,
+      endDate: endDate ? new Date(endDate) : campaign.endDate
     });
 
     res.json({
@@ -209,6 +272,11 @@ router.post('/reschedule/:id', async (req, res) => {
 
     // If new date is in the past or now, publish immediately
     if (newStartDate <= now) {
+      // Gating before going Live
+      const gatingErrors = getPublishabilityErrors(campaign);
+      if (gatingErrors.length > 0) {
+        return res.status(422).json({ success: false, message: 'Publish gating failed', errors: gatingErrors });
+      }
       await campaign.update({
         state: 'Live',
         startDate: now
