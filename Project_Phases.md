@@ -358,25 +358,47 @@ This document outlines the phase### Phase 4: Frontend Dashboard Development (STA
 - [ ] Integration tests cover various query types and edge cases
 - [ ] Cost optimization for LLM API usage implemented
 
-## Phase 8: Testing and Optimization
+## Phase 8: Testing and Optimization (Consolidated Testing Plan)
 **Goal**: Ensure application quality and performance
-**Deliverables**:
-- Add unit tests for backend APIs
-- Implement end-to-end tests for frontend
-- Optimize database queries
-- Add loading states and error handling
-- Performance testing and optimization
 
-**Success Criteria**: Application passes all tests and performs well under expected load
+**Targets**:
+- Overall coverage target: 80%+
+- Route-level confidence on critical paths (workflow, channels, reports)
+- Frontend UI behaviors covered for key pages (Dashboard, Editor)
 
-**QA Requirements for Phase Approval**:
-- [ ] Comprehensive test suite covers all functionality
-- [ ] End-to-end tests simulate real user workflows
-- [ ] Performance benchmarks meet requirements
-- [ ] Database queries are optimized and fast
-- [ ] Memory leaks and performance issues are resolved
-- [ ] Error handling is comprehensive and user-friendly
-- [ ] Load testing passes with expected user volumes
+**Scope & Priorities**:
+- Backend (HIGH):
+	- Workflow routes (publish/schedule/unschedule/stop)
+	- Channel management routes
+	- Reports routes (generation, filters)
+- Frontend (MEDIUM):
+	- Dashboard DataGrid filtering/search
+	- Campaign Editor flows (publish/schedule dialogs, validations)
+	- API services: error handling and request shaping
+- Integration (MEDIUM):
+	- End-to-end user journeys (create → edit → publish/schedule → stop)
+- Database (LOW):
+	- Model constraints and init/seed behaviors
+
+**Implementation Strategy**:
+- Phase 8.1: Backend route tests (unit/integration)
+- Phase 8.2: Frontend component tests + API service tests
+- Phase 8.3: Integration tests and coverage optimization passes
+
+**Tooling**:
+- Jest + Supertest (backend)
+- React Testing Library + jest-environment-jsdom (frontend)
+- MSW (API mocking) as needed
+
+**Success Criteria**:
+- Overall coverage ≥ 80%
+- Critical workflows green in integration tests
+- Error paths covered (validation failures, forbidden transitions)
+
+**Quality Gates**:
+- CI runs test suites without failures
+- Performance budgets respected for key endpoints and screens
+- Clear, actionable failure messages in tests
 
 ## Phase 9: Deployment and Documentation
 **Goal**: Prepare for deployment and create documentation
