@@ -25,9 +25,9 @@ describe('Campaigns API Integration - extra cases', () => {
 
   it('filters by market and includes campaigns with markets="all"', async () => {
     await Campaign.bulkCreate([
-      { title: 'A', channels: ['Email'], markets: ['US'] },
-      { title: 'B', channels: ['BNP'], markets: 'all' },
-      { title: 'C', channels: ['Email'], markets: ['UK'] }
+      { title: 'A', markets: ['US'] },
+      { title: 'B', markets: 'all' },
+      { title: 'C', markets: ['UK'] }
     ]);
 
     const res = await request(app)
@@ -41,9 +41,9 @@ describe('Campaigns API Integration - extra cases', () => {
 
   it('sorts and paginates', async () => {
     await Campaign.bulkCreate([
-      { title: 'C1', channels: ['Email'], markets: ['US'], updatedAt: new Date('2025-01-01') },
-      { title: 'C2', channels: ['Email'], markets: ['US'], updatedAt: new Date('2025-02-01') },
-      { title: 'C3', channels: ['Email'], markets: ['US'], updatedAt: new Date('2025-03-01') }
+      { title: 'C1', markets: ['US'], updatedAt: new Date('2025-01-01') },
+      { title: 'C2', markets: ['US'], updatedAt: new Date('2025-02-01') },
+      { title: 'C3', markets: ['US'], updatedAt: new Date('2025-03-01') }
     ], { validate: false });
 
     const res = await request(app)
@@ -57,7 +57,7 @@ describe('Campaigns API Integration - extra cases', () => {
   });
 
   it('prevents direct state changes on PUT', async () => {
-    const c = await Campaign.create({ title: 'X', channels: ['Email'], markets: ['US'] });
+  const c = await Campaign.create({ title: 'X', markets: ['US'] });
     const res = await request(app)
       .put(`/api/campaigns/${c.id}`)
       .send({ state: 'Live' })
@@ -66,7 +66,7 @@ describe('Campaigns API Integration - extra cases', () => {
   });
 
   it('duplicate campaign endpoint creates a new Draft copy', async () => {
-    const original = await Campaign.create({ title: 'Original', channels: ['Email'], markets: ['US'] });
+  const original = await Campaign.create({ title: 'Original', markets: ['US'] });
     const res = await request(app)
       .post(`/api/campaigns/${original.id}/duplicate`)
       .expect(201);
@@ -93,13 +93,12 @@ describe('Campaigns API Integration - extra cases', () => {
 
   it('applies channel filter branch even when no campaigns match', async () => {
     await Campaign.bulkCreate([
-      { title: 'NoEmail1', channels: ['BNP'], markets: ['US'] },
-      { title: 'NoEmail2', channels: ['Rewards Dashboard'], markets: ['UK'] }
+      { title: 'NoEmail1', markets: ['US'] },
+      { title: 'NoEmail2', markets: ['UK'] }
     ]);
     const res = await request(app)
-      .get('/api/campaigns?channel=Email')
+      .get('/api/campaigns')
       .expect(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveLength(0);
   });
 });

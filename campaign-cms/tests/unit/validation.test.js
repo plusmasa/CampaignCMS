@@ -1,5 +1,4 @@
 const { 
-  validateChannels, 
   validateMarkets, 
   validateState, 
   validateTitle, 
@@ -7,21 +6,7 @@ const {
 } = require('../../backend/utils/validation');
 
 describe('Validation Utilities', () => {
-  describe('validateChannels', () => {
-    it('should validate valid channels', () => {
-      const validChannels = ['Email', 'BNP'];
-      expect(() => validateChannels(validChannels)).not.toThrow();
-    });
-    
-    it('should throw error for invalid channels', () => {
-      const invalidChannels = ['Email', 'InvalidChannel'];
-      expect(() => validateChannels(invalidChannels)).toThrow('Invalid channel: InvalidChannel');
-    });
-    
-    it('should throw error if channels is not an array', () => {
-      expect(() => validateChannels('Email')).toThrow('Channels must be an array');
-    });
-  });
+  // channels removed: no validateChannels tests
   
   describe('validateMarkets', () => {
     it('should validate "all" markets', () => {

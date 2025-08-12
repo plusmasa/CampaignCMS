@@ -1,18 +1,13 @@
 const express = require('express');
 const { Campaign } = require('../models');
 const router = express.Router();
-const { STATE_TRANSITIONS, CHANNEL_CONFIGS } = require('../utils/constants');
+const { STATE_TRANSITIONS } = require('../utils/constants');
 const { validateConfig } = require('../utils/campaignSchema');
 const { validateDateRange } = require('../utils/validation');
 
 // Helper: strict checks required before moving a Draft to Scheduled/Live
 function getPublishabilityErrors(campaign) {
   const errors = [];
-
-  // Require at least one channel selected
-  if (!Array.isArray(campaign.channels) || campaign.channels.length === 0) {
-    errors.push('At least one channel must be selected before publishing.');
-  }
 
   // Validate type-specific config with Ajv
   const { valid, errors: ajvErrors } = validateConfig(campaign.type || 'OFFER', campaign.config || {});
@@ -37,37 +32,7 @@ function getPublishabilityErrors(campaign) {
     }
   }
 
-  // Validate per-channel required fields using CHANNEL_CONFIGS
-  if (Array.isArray(campaign.channels) && campaign.channels.length > 0) {
-    const cc = campaign.channelConfig || {};
-    for (const ch of campaign.channels) {
-      const meta = CHANNEL_CONFIGS[ch];
-      if (!meta || !meta.configFields) continue; // unknown channel: skip
-      const provided = cc[ch] || {};
-      for (const [fieldKey, spec] of Object.entries(meta.configFields)) {
-        const { required, label, type } = spec;
-        if (required) {
-          const v = provided[fieldKey];
-          const missing = v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
-          if (missing) {
-            errors.push(`Channel ${ch}: ${label || fieldKey} is required`);
-            continue;
-          }
-        }
-        // Light type checks for email/url if provided
-        const v = provided[fieldKey];
-        if (v !== undefined && v !== null && typeof v === 'string' && v.trim() !== '') {
-          if (type === 'email') {
-            const emailOk = /.+@.+\..+/.test(v);
-            if (!emailOk) errors.push(`Channel ${ch}: ${label || fieldKey} must be a valid email`);
-          } else if (type === 'url') {
-            const urlOk = /^(https?:\/\/|\/\/|\/).+/.test(v);
-            if (!urlOk) errors.push(`Channel ${ch}: ${label || fieldKey} must be a valid URL`);
-          }
-        }
-      }
-    }
-  }
+  // Channel selection and per-channel config validation removed
 
   return errors;
 }
@@ -79,7 +44,7 @@ router.put('/campaigns/:id/transition', async (req, res) => {
     if (!campaign) {
       return res.status(404).json({ success: false, message: 'Campaign not found' });
     }
-    const { newState } = req.body || {};
+    const { newState, endDate } = req.body || {};
     if (!newState) {
       return res.status(400).json({ success: false, message: 'newState is required' });
     }
@@ -87,7 +52,22 @@ router.put('/campaigns/:id/transition', async (req, res) => {
     if (!allowed.includes(newState)) {
       return res.status(400).json({ success: false, message: 'Invalid state transition' });
     }
-    campaign.state = newState;
+    // Apply invariant rules for dates when transitioning
+    if (newState === 'Live') {
+      // Transitioning to Live should set startDate to the time it went live if not already set or in the future
+      campaign.state = 'Live';
+      const now = new Date();
+      if (!campaign.startDate || new Date(campaign.startDate) > now) {
+        campaign.startDate = now;
+      }
+    } else if (newState === 'Complete') {
+      // Completing should always stamp an endDate
+      campaign.state = 'Complete';
+      campaign.endDate = endDate ? new Date(endDate) : new Date();
+    } else {
+      campaign.state = newState;
+    }
+
     await campaign.save();
     res.json({ success: true, message: 'State updated', data: campaign });
   } catch (error) {
@@ -426,7 +406,9 @@ router.post('/process-scheduled', async (req, res) => {
     const publishedCampaigns = [];
     
     for (const campaign of scheduledCampaigns) {
-      await campaign.update({ state: 'Live' });
+      // When auto-publishing, mark the moment it actually went live
+      const nowLive = new Date();
+      await campaign.update({ state: 'Live', startDate: nowLive });
       publishedCampaigns.push(campaign);
     }
 

@@ -126,3 +126,19 @@ This file is deprecated in favor of a unified CHANGELOG.md. The historical conte
 ## 📝 Commit Summary (this session)
 - Docs: Updated Project_Phases.md and campaign-cms/README.md to reflect Phase 5 & 6 completion
 - Frontend: CampaignEditor and Dashboard refinements; final revert of DataGrid animation
+
+
+---
+
+# 📋 Documentation Update Summary - Phase 9 Session (August 11, 2025)
+
+See CHANGELOG.md (2025-08-11 entry) and Phase9-Session-Summary.md for details.
+
+## Updated
+- CHANGELOG.md: Added Phase 9 notes (Offer editor fields and counters, computed URL, header action ordering, Dashboard partner column/persistence).
+- Phase9-Session-Summary.md: Session highlights, verification, and next steps.
+
+## Scope
+- Backend: OFFER schema/templates include optional sku and formLabel.
+- Frontend: Editor adds CTA, counters, SKU, Form Label, computed Redeem URL, and Copy URL in read-only; header icon-only actions ordered first.
+- Runbook alignment: Reinforced correct working directory for starting servers.

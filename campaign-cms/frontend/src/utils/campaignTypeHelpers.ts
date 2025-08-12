@@ -10,6 +10,8 @@ export function typeLabel(t?: CampaignType): string {
       return 'Quiz';
     case 'QUEST':
       return 'Quest';
+    case 'HERO_BANNER':
+      return 'Dashboard Hero Banner';
     default:
       return '—';
   }
@@ -20,8 +22,8 @@ export function hasMeaningfulConfig(type?: CampaignType, config?: unknown): bool
   if (!type || !config || typeof config !== 'object') return false;
   switch (type) {
     case 'OFFER': {
-      const c = config as { banners?: Array<{ imageUrl?: string; header?: string; description?: string }> };
-      return Array.isArray(c.banners) && c.banners.some((b) => Boolean(b?.imageUrl || b?.header || b?.description));
+  const c = config as { banners?: Array<{ imageUrl?: string; header?: string; description?: string; cta?: string; sku?: string; formLabel?: string }> };
+  return Array.isArray(c.banners) && c.banners.some((b) => Boolean(b?.imageUrl || b?.header || b?.description || b?.cta || b?.sku || b?.formLabel));
     }
     case 'POLL': {
       const c = config as { question?: string; options?: string[] };

@@ -41,13 +41,11 @@ describe('Campaigns API Integration', () => {
       // Create test campaigns
       await Campaign.create({
         title: 'Campaign 1',
-        channels: ['Email'],
         markets: ['US']
       });
       
       await Campaign.create({
         title: 'Campaign 2',
-        channels: ['BNP'],
         markets: ['UK']
       });
       
@@ -65,14 +63,12 @@ describe('Campaigns API Integration', () => {
       await Campaign.create({
         title: 'Draft Campaign',
         state: 'Draft',
-        channels: ['Email'],
         markets: ['US']
       });
       
       await Campaign.create({
         title: 'Live Campaign',
         state: 'Live',
-        channels: ['Email'],
         markets: ['US']
       });
       
@@ -90,13 +86,7 @@ describe('Campaigns API Integration', () => {
     it('should create a new campaign with valid data', async () => {
       const campaignData = {
         title: 'Test Campaign',
-        channels: ['Email', 'BNP'],
-        markets: ['US', 'UK'],
-        channelConfig: {
-          'Email': {
-            subject: 'Test Subject'
-          }
-        }
+        markets: ['US', 'UK']
       };
       
       const response = await request(app)
@@ -107,13 +97,12 @@ describe('Campaigns API Integration', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.title).toBe('Test Campaign');
       expect(response.body.data.state).toBe('Draft');
-      expect(response.body.data.channels).toEqual(['Email', 'BNP']);
+  expect(response.body.data.channels || []).toEqual([]);
     });
     
     it('should reject campaign with invalid title', async () => {
       const campaignData = {
         title: '',
-        channels: ['Email'],
         markets: ['US']
       };
       
@@ -127,35 +116,18 @@ describe('Campaigns API Integration', () => {
       expect(response.body.error).toContain('Title is required');
     });
     
-    it('should reject campaign with invalid channels', async () => {
-      const campaignData = {
-        title: 'Test Campaign',
-        channels: ['InvalidChannel'],
-        markets: ['US']
-      };
-      
-      const response = await request(app)
-        .post('/api/campaigns')
-        .send(campaignData)
-        .expect(400);
-        
-      expect(response.body.success).toBe(false);
-      expect(response.body.message).toBe('Failed to create campaign');
-      expect(response.body.error).toContain('Invalid channel');
-    });
+  // channels removed: no invalid channels test
   });
   
   describe('PUT /api/campaigns/:id', () => {
     it('should update existing campaign', async () => {
       const campaign = await Campaign.create({
         title: 'Original Title',
-        channels: ['Email'],
         markets: ['US']
       });
       
       const updateData = {
-        title: 'Updated Title',
-        channels: ['Email', 'BNP']
+        title: 'Updated Title'
       };
       
       const response = await request(app)
@@ -165,7 +137,7 @@ describe('Campaigns API Integration', () => {
         
       expect(response.body.success).toBe(true);
       expect(response.body.data.title).toBe('Updated Title');
-      expect(response.body.data.channels).toEqual(['Email', 'BNP']);
+  expect(response.body.data.channels || []).toEqual([]);
     });
     
     it('should return 404 for non-existent campaign', async () => {
@@ -184,7 +156,6 @@ describe('Campaigns API Integration', () => {
       const campaign = await Campaign.create({
         title: 'Draft Campaign',
         state: 'Draft',
-        channels: ['Email'],
         markets: ['US']
       });
       
@@ -203,7 +174,6 @@ describe('Campaigns API Integration', () => {
       const campaign = await Campaign.create({
         title: 'Live Campaign',
         state: 'Live',
-        channels: ['Email'],
         markets: ['US']
       });
       

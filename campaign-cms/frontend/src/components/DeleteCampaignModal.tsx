@@ -111,7 +111,7 @@ export const DeleteCampaignModal: React.FC<DeleteCampaignModalProps> = ({
               <br />
               <Text><strong>State:</strong> {campaign.state}</Text>
               <br />
-              <Text><strong>Channels:</strong> {campaign.channels.join(', ')}</Text>
+              {/* Channels removed */}
             </div>
 
             {error && (

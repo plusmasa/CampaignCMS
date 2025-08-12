@@ -8,68 +8,22 @@ app.use('/api/channels', channelRoutes);
 
 describe('Channel Management Routes', () => {
   describe('GET /api/channels', () => {
-    it('should return available channels', async () => {
+    it('should return 410 as channels are removed', async () => {
       const response = await request(app)
         .get('/api/channels');
 
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('channels');
-      expect(Array.isArray(response.body.data.channels)).toBe(true);
-      expect(response.body.data.channels).toContain('Email');
-      expect(response.body.data.channels).toContain('BNP');
-      expect(response.body.data.channels).toContain('Rewards Dashboard');
-    });
-
-    it('should include channel configurations', async () => {
-      const response = await request(app)
-        .get('/api/channels');
-
-      expect(response.body.data).toHaveProperty('configurations');
-      expect(response.body.data.configurations).toHaveProperty('Email');
-      expect(response.body.data.configurations).toHaveProperty('BNP');
-      expect(response.body.data.configurations).toHaveProperty('Rewards Dashboard');
+      expect(response.status).toBe(410);
+      expect(response.body.success).toBe(false);
     });
   });
 
   describe('GET /api/channels/:channel/config', () => {
-    it('should return Email channel configuration', async () => {
-      const response = await request(app)
-        .get('/api/channels/Email/config');
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('channel', 'Email');
-      expect(response.body.data).toHaveProperty('config');
-      expect(response.body.data.config).toHaveProperty('fields');
-    });
-
-    it('should return BNP channel configuration', async () => {
-      const response = await request(app)
-        .get('/api/channels/BNP/config');
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('channel', 'BNP');
-      expect(response.body.data.config).toHaveProperty('fields');
-    });
-
-    it('should return Rewards Dashboard channel configuration', async () => {
-      const response = await request(app)
-        .get('/api/channels/Rewards%20Dashboard/config');
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('channel', 'Rewards Dashboard');
-    });
-
-    it('should return 400 for invalid channel', async () => {
+    it('should return 410 for any channel config request', async () => {
       const response = await request(app)
         .get('/api/channels/InvalidChannel/config');
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(410);
       expect(response.body.success).toBe(false);
-      expect(response.body.message).toContain('Invalid channel');
     });
   });
 
@@ -99,7 +53,7 @@ describe('Channel Management Routes', () => {
   });
 
   describe('GET /api/channels/validation', () => {
-    it('should return validation rules for channels and markets', async () => {
+    it('should return validation rules for markets and states (channels empty)', async () => {
       const response = await request(app)
         .get('/api/channels/validation');
 
@@ -108,16 +62,17 @@ describe('Channel Management Routes', () => {
       expect(response.body.data).toHaveProperty('validChannels');
       expect(response.body.data).toHaveProperty('validMarkets');
       expect(response.body.data).toHaveProperty('validStates');
+      expect(response.body.data.validChannels).toEqual([]);
     });
 
     it('should return arrays of valid options', async () => {
       const response = await request(app)
         .get('/api/channels/validation');
 
-      const { data } = response.body;
-      expect(Array.isArray(data.validChannels)).toBe(true);
-      expect(Array.isArray(data.validMarkets)).toBe(true);
-      expect(Array.isArray(data.validStates)).toBe(true);
+  const { data } = response.body;
+  expect(Array.isArray(data.validChannels)).toBe(true);
+  expect(Array.isArray(data.validMarkets)).toBe(true);
+  expect(Array.isArray(data.validStates)).toBe(true);
     });
   });
 });

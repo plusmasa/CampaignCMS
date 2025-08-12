@@ -8,9 +8,9 @@ export interface Campaign {
   state: CampaignState;
   startDate?: string;
   endDate?: string;
-  channels: Channel[];
   markets: string | string[]; // "all" or array of market codes
-  channelConfig: Record<string, unknown>;
+  partnerId?: number | null;
+  partner?: { id: number; name: string; active: boolean } | null;
   config?: unknown;
   createdAt: string;
   updatedAt: string;
@@ -18,17 +18,14 @@ export interface Campaign {
 
 export type CampaignState = 'Draft' | 'Scheduled' | 'Live' | 'Complete' | 'Deleted';
 
-export type Channel = 'Email' | 'BNP' | 'Rewards Dashboard';
-
-export type CampaignType = 'OFFER' | 'POLL' | 'QUIZ' | 'QUEST';
+export type CampaignType = 'OFFER' | 'POLL' | 'QUIZ' | 'QUEST' | 'HERO_BANNER';
 
 export interface CreateCampaignRequest {
   title: string;
-  channels: Channel[];
   markets: string | string[];
   startDate?: string;
   endDate?: string;
-  channelConfig?: Record<string, unknown>;
+  partnerId?: number | null;
 }
 
 export interface CreateCampaignWithTypeRequest extends CreateCampaignRequest {
@@ -60,7 +57,6 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 // Filter and search types
 export interface CampaignFilters {
   state?: CampaignState;
-  channel?: Channel;
   search?: string;
   page?: number;
   limit?: number;

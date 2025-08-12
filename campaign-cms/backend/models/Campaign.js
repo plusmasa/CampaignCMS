@@ -20,7 +20,7 @@ const Campaign = sequelize.define('Campaign', {
   },
   // New discriminator for multi-type campaigns
   type: {
-    type: DataTypes.ENUM('OFFER', 'POLL', 'QUIZ', 'QUEST'),
+    type: DataTypes.ENUM('OFFER', 'POLL', 'QUIZ', 'QUEST', 'HERO_BANNER'),
     allowNull: false,
     defaultValue: 'OFFER'
   },
@@ -52,24 +52,6 @@ const Campaign = sequelize.define('Campaign', {
     type: DataTypes.DATE,
     allowNull: true
   },
-  channels: {
-    type: DataTypes.JSON,
-    allowNull: false,
-    defaultValue: [],
-    validate: {
-      isValidChannels(value) {
-        const validChannels = ['Email', 'BNP', 'Rewards Dashboard'];
-        if (!Array.isArray(value)) {
-          throw new Error('Channels must be an array');
-        }
-        for (const channel of value) {
-          if (!validChannels.includes(channel)) {
-            throw new Error(`Invalid channel: ${channel}. Must be one of: ${validChannels.join(', ')}`);
-          }
-        }
-      }
-    }
-  },
   markets: {
     type: DataTypes.JSON,
     allowNull: false,
@@ -89,11 +71,12 @@ const Campaign = sequelize.define('Campaign', {
       }
     }
   },
-  channelConfig: {
-    type: DataTypes.JSON,
+  partnerId: {
+    type: DataTypes.INTEGER,
     allowNull: true,
-    defaultValue: {}
+  // Keep association at ORM level; avoid hard DB FK to simplify tests/migrations
   },
+  // Removed per-campaign channel selection and channelConfig
   // Generic type-specific configuration JSON (discriminated by `type`)
   config: {
     type: DataTypes.JSON,

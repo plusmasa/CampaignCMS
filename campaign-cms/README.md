@@ -2,7 +2,14 @@
 
 A professional Node.js/Express backend system for managing marketing campaigns across multiple channels and markets.
 
-## 🚀 Current Status
+## � Recent Highlights (Phase 9)
+
+- Offer editor: CTA field; character limits and counters (Header 30, Description 75, CTA 30)
+- Offer editor: SKU + Form Label fields; computed Redeem URL in Draft; read-only view shows URL with Copy button
+- Header actions: icon-only transparent actions now precede secondary/primary across states
+- Dashboard: Partner column with filter; column visibility persists
+
+## �🚀 Current Status
 
 **Phase 6 Complete**: Workflow and State Management ✅
 **Phase 5 Complete**: Campaign Detail View & Editor ✅

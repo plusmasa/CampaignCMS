@@ -15,7 +15,10 @@ const OFFER_SCHEMA = {
         properties: {
           imageUrl: { type: 'string' },
           header: { type: 'string' },
-          description: { type: 'string' }
+          description: { type: 'string' },
+          cta: { type: 'string' },
+          sku: { type: 'string' },
+          formLabel: { type: 'string' }
         },
         additionalProperties: false
       },
@@ -115,7 +118,24 @@ const validators = {
   OFFER: ajv.compile(OFFER_SCHEMA),
   POLL: ajv.compile(POLL_SCHEMA),
   QUIZ: ajv.compile(QUIZ_SCHEMA),
-  QUEST: ajv.compile(QUEST_SCHEMA)
+  QUEST: ajv.compile(QUEST_SCHEMA),
+  // Placeholder schema for HERO_BANNER (disabled type). Keep permissive for now if ever used.
+  HERO_BANNER: ajv.compile({
+    type: 'object',
+    properties: {
+      imageUrl: { type: 'string' },
+      headline: { type: 'string' },
+      subtext: { type: 'string' },
+      cta: {
+        type: 'object',
+        properties: { label: { type: 'string' }, url: { type: 'string' } },
+        required: ['label', 'url'],
+        additionalProperties: false
+      }
+    },
+    required: ['imageUrl', 'headline', 'cta'],
+    additionalProperties: false
+  })
 };
 
 const ALLOWED_MARKETS = ['US', 'UK', 'CA', 'AU', 'DE', 'FR', 'JP'];

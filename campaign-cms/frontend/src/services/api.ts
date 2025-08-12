@@ -38,7 +38,7 @@ export const campaignService = {
     const params = new URLSearchParams();
     
     if (filters.state) params.append('state', filters.state);
-    if (filters.channel) params.append('channel', filters.channel);
+  // channel filter removed
     if (filters.search) params.append('search', filters.search);
     if (filters.page) params.append('page', filters.page.toString());
     if (filters.limit) params.append('limit', filters.limit.toString());
@@ -46,13 +46,13 @@ export const campaignService = {
     if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
 
     const response = await apiClient.get(`/campaigns?${params.toString()}`);
-    return response.data;
+  return response.data;
   },
 
   // Get single campaign by ID
   async getCampaign(id: number): Promise<ApiResponse<Campaign>> {
     const response = await apiClient.get(`/campaigns/${id}`);
-    return response.data;
+  return response.data;
   },
 
   // Create new campaign
@@ -154,6 +154,13 @@ export const typesService = {
 export const aiService = {
   async suggestVariant(type: CampaignType, sourceConfig: unknown, targetMarket: string): Promise<ApiResponse<{ market: string; config: unknown }>> {
     const response = await apiClient.post('/ai/suggest', { type, sourceConfig, targetMarket });
+    return response.data;
+  },
+};
+
+export const partnerService = {
+  async list(includeInactive = false): Promise<ApiResponse<Array<{ id: number; name: string; active: boolean }>>> {
+    const response = await apiClient.get(`/partners${includeInactive ? '?includeInactive=true' : ''}`);
     return response.data;
   },
 };

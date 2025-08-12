@@ -1,19 +1,7 @@
-const { VALID_CHANNELS, VALID_MARKETS, VALID_STATES } = require('./constants');
+const { VALID_MARKETS, VALID_STATES } = require('./constants');
 
 // Validation utility functions
-const validateChannels = (channels) => {
-  if (!Array.isArray(channels)) {
-    throw new Error('Channels must be an array');
-  }
-  
-  for (const channel of channels) {
-    if (!VALID_CHANNELS.includes(channel)) {
-      throw new Error(`Invalid channel: ${channel}. Valid channels: ${VALID_CHANNELS.join(', ')}`);
-    }
-  }
-  
-  return true;
-};
+// Channels removed
 
 const validateMarkets = (markets) => {
   if (markets === 'all') return true;
@@ -56,7 +44,6 @@ const validateDateRange = (startDate, endDate) => {
 };
 
 module.exports = {
-  validateChannels,
   validateMarkets,
   validateState,
   validateTitle,

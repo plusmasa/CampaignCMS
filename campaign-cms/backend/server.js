@@ -12,10 +12,10 @@ const { logger } = require('./utils/logger');
 // Route imports
 const campaignRoutes = require('./routes/campaigns');
 const workflowRoutes = require('./routes/campaign-workflow');
-const channelRoutes = require('./routes/channel-management');
 const reportRoutes = require('./routes/reports');
 const campaignTypesRoutes = require('./routes/campaign-types');
 const aiRoutes = require('./routes/ai');
+const partnersRoutes = require('./routes/partners');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -48,10 +48,10 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // API Routes
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/workflow', workflowRoutes);
-app.use('/api/channels', channelRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/campaign-types', campaignTypesRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/partners', partnersRoutes);
 
 // Basic route for testing
 app.get('/api/health', (req, res) => {

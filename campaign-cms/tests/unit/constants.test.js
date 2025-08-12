@@ -1,21 +1,7 @@
-const { VALID_CHANNELS, VALID_MARKETS, VALID_STATES } = require('../../backend/utils/constants');
+const { VALID_MARKETS, VALID_STATES } = require('../../backend/utils/constants');
 
 describe('Constants', () => {
-  describe('VALID_CHANNELS', () => {
-    it('should contain expected channel types', () => {
-      expect(VALID_CHANNELS).toContain('Email');
-      expect(VALID_CHANNELS).toContain('BNP');
-      expect(VALID_CHANNELS).toContain('Rewards Dashboard');
-    });
-
-    it('should be an array', () => {
-      expect(Array.isArray(VALID_CHANNELS)).toBe(true);
-    });
-
-    it('should have at least 3 channels', () => {
-      expect(VALID_CHANNELS.length).toBeGreaterThanOrEqual(3);
-    });
-  });
+  // Channels removed from product
 
   describe('VALID_MARKETS', () => {
     it('should contain expected market codes', () => {
@@ -60,14 +46,8 @@ describe('Constants', () => {
 
   describe('Constants Integration', () => {
     it('should export all required constants', () => {
-      expect(VALID_CHANNELS).toBeDefined();
       expect(VALID_MARKETS).toBeDefined();
       expect(VALID_STATES).toBeDefined();
-    });
-
-    it('should have no duplicate values in channels', () => {
-      const uniqueChannels = [...new Set(VALID_CHANNELS)];
-      expect(uniqueChannels).toHaveLength(VALID_CHANNELS.length);
     });
 
     it('should have no duplicate values in markets', () => {

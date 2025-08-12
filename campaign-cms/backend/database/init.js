@@ -1,20 +1,18 @@
-const { Campaign, sequelize } = require('../models');
+const { Campaign, Partner, sequelize } = require('../models');
 
 async function initializeDatabase() {
   try {
-    // In tests, prefer full sync(force) to avoid SQLite alter issues —
-    // but if the model is mocked (unit tests), honor the original call to Campaign.sync({ alter: true })
     if (process.env.NODE_ENV === 'test') {
-      if (Campaign && Campaign.sync && Campaign.sync._isMockFunction) {
+      // Unit tests mock Campaign and expect alter sync on the model
+      if (Campaign && typeof Campaign.sync === 'function') {
         await Campaign.sync({ alter: true });
-      } else if (sequelize && typeof sequelize.sync === 'function') {
-        await sequelize.sync({ force: true });
-      } else {
-        await Campaign.sync({ force: true });
+      }
+      if (Partner && typeof Partner.sync === 'function') {
+        await Partner.sync({ alter: true });
       }
     } else {
-      // Non-test env: alter to evolve schema during dev
-      await Campaign.sync({ alter: true });
+      // Non-test env: alter to evolve schema during dev (all models)
+      await sequelize.sync({ alter: true });
     }
     return true;
   } catch (error) {
@@ -24,6 +22,17 @@ async function initializeDatabase() {
 
 async function seedDatabase() {
   try {
+    // Seed default partners if none (skip if Partner is mocked/undefined in unit tests)
+    if (Partner && typeof Partner.count === 'function') {
+      const partnerCount = await Partner.count();
+      if (partnerCount === 0) {
+        await Partner.bulkCreate([
+          { name: 'Spotify', active: true },
+          { name: 'Roblox', active: true },
+        ]);
+      }
+    }
+
     // Check if we already have any campaign
     const existing = await Campaign.findOne();
     if (existing) {
@@ -37,14 +46,9 @@ async function seedDatabase() {
         type: 'OFFER',
         templateVersion: 1,
         state: 'Draft',
-        channels: ['Email', 'BNP'],
         markets: ['US', 'CA'],
         startDate: new Date('2025-08-15'),
         endDate: new Date('2025-08-31'),
-        channelConfig: {
-          Email: { template: 'summer_sale_template' },
-          BNP: { position: 'hero', priority: 'high' }
-        },
         config: { banners: [{ imageUrl: '', header: '', description: '' }] }
       },
       {
@@ -53,14 +57,9 @@ async function seedDatabase() {
         type: 'OFFER',
         templateVersion: 1,
         state: 'Scheduled',
-        channels: ['Email', 'Rewards Dashboard'],
         markets: 'all',
         startDate: new Date('2025-08-20'),
         endDate: new Date('2025-09-10'),
-        channelConfig: {
-          Email: { template: 'back_to_school_template' },
-          'Rewards Dashboard': { section: 'featured' }
-        },
         config: { banners: [{ imageUrl: '', header: '', description: '' }] }
       },
       {
@@ -69,14 +68,9 @@ async function seedDatabase() {
         type: 'OFFER',
         templateVersion: 1,
         state: 'Live',
-        channels: ['BNP', 'Rewards Dashboard'],
         markets: ['US', 'UK', 'CA'],
         startDate: new Date('2025-08-01'),
         endDate: null, // Runs indefinitely until manually stopped
-        channelConfig: {
-          BNP: { position: 'sidebar', priority: 'medium' },
-          'Rewards Dashboard': { section: 'seasonal' }
-        },
         config: { banners: [{ imageUrl: '', header: '', description: '' }] }
       },
       {
@@ -85,13 +79,9 @@ async function seedDatabase() {
         type: 'OFFER',
         templateVersion: 1,
         state: 'Complete',
-        channels: ['Email'],
         markets: ['DE', 'FR'],
         startDate: new Date('2025-03-01'),
         endDate: new Date('2025-04-01'),
-        channelConfig: {
-          Email: { template: 'newsletter' }
-        },
         config: { banners: [{ imageUrl: '', header: '', description: '' }] }
       }
     ];

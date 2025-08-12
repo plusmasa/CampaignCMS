@@ -27,18 +27,18 @@ import {
   useToastController,
   useId,
 } from '@fluentui/react-components';
+import { Checkbox } from '@fluentui/react-components';
 import { Radio, RadioGroup } from '@fluentui/react-components';
 import { Dropdown, Option } from '@fluentui/react-components';
 import { DatePicker } from '@fluentui/react-datepicker-compat';
-import { Dismiss24Regular, Delete24Regular, Checkmark20Regular, Copy24Regular, Send16Regular, Calendar16Regular, LayerDiagonalSparkle16Regular } from '@fluentui/react-icons';
-import { campaignService, typesService, aiService } from '../services/api';
+import { Dismiss24Regular, Delete24Regular, Checkmark20Regular, Copy24Regular, Send16Regular, Calendar16Regular, LayerDiagonalSparkle24Regular, CopyAdd24Regular, Image24Regular } from '@fluentui/react-icons';
+import { campaignService, typesService, aiService, partnerService } from '../services/api';
 import { getBadgeStyle } from '../constants/stateBadge';
 import type { Campaign, CampaignType } from '../types/Campaign';
 import type { UpdateCampaignRequest } from '../types/Campaign';
 import { LeftNavigation } from '../components/LeftNavigation';
 import { Header } from '../components/Header';
 import { AVAILABLE_MARKETS } from '../constants';
-import { validateChannelConfig } from '../utils/channelConfigValidation';
 import { typeLabel, hasMeaningfulConfig } from '../utils/campaignTypeHelpers';
 // Right rail will host campaign-specific controls soon
 
@@ -202,14 +202,7 @@ const useStyles = makeStyles({
     '& .ms-TextField-fieldGroup': { width: '100%' },
     '& input': { width: '100%' },
   },
-  channelsCard: {
-    width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '160px',
-    marginTop: tokens.spacingVerticalM,
-  },
+  // channelsCard removed
   metaRow: {
     display: 'flex',
     alignItems: 'center',
@@ -257,6 +250,34 @@ const useStyles = makeStyles({
     alignItems: 'center',
     ...shorthands.gap(tokens.spacingHorizontalS),
   },
+  labelWithCounter: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  charCounterInline: {
+    fontSize: '12px',
+    color: 'var(--colorNeutralForeground2)',
+  },
+  uploaderRow: {
+    display: 'flex',
+    flexDirection: 'column',
+    ...shorthands.gap(tokens.spacingVerticalM),
+    marginTop: tokens.spacingVerticalM,
+  },
+  uploaderBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '120px',
+    border: '2px dashed var(--colorNeutralStroke2)',
+    backgroundColor: 'var(--colorNeutralBackground2)',
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.padding(tokens.spacingVerticalS, tokens.spacingHorizontalM),
+  },
   addVariantRow: {
     marginTop: tokens.spacingVerticalL,
   }
@@ -267,7 +288,7 @@ interface CampaignEditorProps {
 }
 
 // Type-specific config shapes (frontend mirrors of backend schemas)
-type OfferBanner = { imageUrl?: string; header?: string; description?: string };
+type OfferBanner = { imageUrl?: string; header?: string; description?: string; cta?: string; sku?: string; formLabel?: string };
 type OfferConfig = { banners?: OfferBanner[] };
 type PollConfig = { question?: string; options?: [string, string]; recordSelection?: boolean };
 type QuizQuestion = { prompt?: string; choices?: [string, string, string]; correctIndex?: 0 | 1 | 2 };
@@ -275,7 +296,6 @@ type QuizConfig = { questions?: QuizQuestion[] };
 type QuestAction = { key?: string; header?: string; description?: string; cooldownDays?: number | null; images?: { complete?: string; incomplete?: string } };
 type QuestConfig = { actions?: QuestAction[]; reward?: { type?: string; value?: string }; display?: { image?: string; header?: string; description?: string } };
 type AvailableType = { type: 'OFFER' | 'POLL' | 'QUIZ' | 'QUEST'; label: string; presets: Array<{ label: string; questionCount?: number }> };
-type ChannelSettings = { bingUrl?: string } & Record<string, unknown>;
 type AnyConfig = OfferConfig | PollConfig | QuizConfig | QuestConfig | Record<string, unknown>;
 type Variant = { id: string; market?: string; config: AnyConfig };
 
@@ -308,105 +328,76 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
   const [aiSourceIndex, setAiSourceIndex] = useState<number | null>(null);
   const [aiTargetMarket, setAiTargetMarket] = useState<string>('');
   const [aiBusy, setAiBusy] = useState(false);
-  // Client-side per-channel validation errors
-  const [channelErrors, setChannelErrors] = useState<string[]>([]);
-  // Type management
+  // Creation guard
+  const hasCreatedRef = useRef(false);
+  // Variants (multi-market content)
+  const [variantsDraft, setVariantsDraft] = useState<Variant[]>([]);
+  const usedMarkets = React.useMemo(() => {
+    return variantsDraft.map(v => v.market).filter(Boolean) as string[];
+  }, [variantsDraft]);
+  const variantsPayload = useCallback(() => {
+    return variantsDraft.map(v => ({ id: v.id, market: v.market, config: v.config || {} }));
+  }, [variantsDraft]);
+  // Scheduling controls (PST demo)
+  const [startDateLocal, setStartDateLocal] = useState<Date | null>(null);
+  const [startTime, setStartTime] = useState<string>('');
+  const [endMode, setEndMode] = useState<'none' | 'relative' | 'specific'>('none');
+  const [endDateLocal, setEndDateLocal] = useState<Date | null>(null);
+  const [endTime, setEndTime] = useState<string>('');
+  const [endAfterAmount, setEndAfterAmount] = useState<string>('');
+  const [endAfterUnit, setEndAfterUnit] = useState<'Hours' | 'Days' | 'Months'>('Hours');
+  const endSelectionIncomplete = React.useMemo(() => {
+    if (campaign?.state !== 'Draft') return false;
+    if (endMode === 'specific') {
+      return !endDateLocal || !endTime;
+    }
+    return false;
+  }, [campaign?.state, endMode, endDateLocal, endTime]);
+  const scheduleInvalid = React.useMemo(() => {
+    if (endMode !== 'specific' || !endDateLocal || !endTime) return false;
+    // Compute end (PST -> UTC)
+    const [eh, em] = endTime.split(':').map(Number);
+    const de = new Date(endDateLocal);
+    de.setHours(eh || 0, em || 0, 0, 0);
+    const endUtcMs = de.getTime() + 8 * 60 * 60 * 1000; // PST -> UTC
+    // Compute start reference
+    let startUtcMs = Date.now();
+    if (publishMode === 'later' && startDateLocal && startTime) {
+      const [sh, sm] = startTime.split(':').map(Number);
+      const ds = new Date(startDateLocal);
+      ds.setHours(sh || 0, sm || 0, 0, 0);
+      startUtcMs = ds.getTime() + 8 * 60 * 60 * 1000;
+    }
+    return endUtcMs <= startUtcMs;
+  }, [endMode, endDateLocal, endTime, publishMode, startDateLocal, startTime]);
+  // Type change controls
+  const [availableTypes, setAvailableTypes] = useState<AvailableType[]>([]);
   const [changingType, setChangingType] = useState(false);
   const [newType, setNewType] = useState<'OFFER' | 'POLL' | 'QUIZ' | 'QUEST'>('OFFER');
   const [quizPreset, setQuizPreset] = useState<number | undefined>(undefined);
-  const [availableTypes, setAvailableTypes] = useState<AvailableType[]>([]);
-  // Multi-variant config editing
-  const [variantsDraft, setVariantsDraft] = useState<Variant[]>([]);
-  // Channel-specific settings
-  const [bingUrl, setBingUrl] = useState<string>('');
-  // Content validation errors will surface in the page-level error bar
-  // Guard to prevent duplicate draft creation in React StrictMode / HMR
-  const hasCreatedRef = useRef(false);
-  // Helper: currently used markets across variants (for filtering/guards)
-  const usedMarkets = React.useMemo(() => (variantsDraft.map(v => v.market).filter(Boolean) as string[]), [variantsDraft]);
-
-  // Right rail: Start date/time (PST for demo)
-  const [startDateLocal, setStartDateLocal] = useState<Date | null>(null);
-  const [startTime, setStartTime] = useState<string>('09:00'); // HH:mm
-  // Right rail: End date/time (PST for demo)
-  const [endDateLocal, setEndDateLocal] = useState<Date | null>(null);
-  const [endTime, setEndTime] = useState<string>(''); // HH:mm, empty until date is picked
-  // End options mode: none (no end), relative (after X units), specific (date/time)
-  type EndMode = 'none' | 'relative' | 'specific';
-  const [endMode, setEndMode] = useState<EndMode>('none');
-  const [endAfterAmount, setEndAfterAmount] = useState<string>(''); // integer-only string
-  const [endAfterUnit, setEndAfterUnit] = useState<'Hours' | 'Days' | 'Months'>('Hours');
-
-  // Format a HH:mm string into 12-hour time with am/pm and PST suffix
-  const formatTimeAmPmPst = useCallback((hhmm: string) => {
-    if (!hhmm || !/^[0-2]?\d:\d{2}$/.test(hhmm)) return hhmm;
-    const [hStr, mStr] = hhmm.split(':');
-    let h = Number(hStr);
-    const ampm = h >= 12 ? 'pm' : 'am';
-    h = h % 12;
-    if (h === 0) h = 12;
-    const hh12 = String(h).padStart(2, '0');
-    return `${hh12}:${mStr} ${ampm} PST`;
-  }, []);
-
-  const toUtcMsFromPst = useCallback((date: Date, hhmm: string) => {
-    const [hh, mm] = hhmm.split(':').map(Number);
-    const d = new Date(date);
-    d.setHours(hh, mm, 0, 0);
-    return d.getTime() + 8 * 60 * 60 * 1000; // PST -> UTC
-  }, []);
-
-  // Display helper: format ISO date/time in Pacific Time (handles PST/PDT)
-  const formatInPacific = useCallback((iso: string) => {
-    try {
-      const date = new Date(iso);
-      const dateStr = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Los_Angeles',
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-      }).format(date);
-      const timeStr = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Los_Angeles',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-        timeZoneName: 'short', // e.g., PST/PDT
-      }).format(date);
-      return { dateStr, timeStr };
-    } catch {
-      return { dateStr: '—', timeStr: '—' };
-    }
-  }, []);
-
-  const scheduleInvalid = React.useMemo(() => {
-    // Validate only when specific mode and both dates & times are provided
-    if (endMode === 'specific') {
-      if (startDateLocal && endDateLocal && startTime && endTime) {
-        const startUtc = toUtcMsFromPst(startDateLocal, startTime);
-        const endUtc = toUtcMsFromPst(endDateLocal, endTime);
-        return endUtc <= startUtc;
-      }
-      return false;
-    }
-    return false;
-  }, [endMode, startDateLocal, endDateLocal, startTime, endTime, toUtcMsFromPst]);
-
-  // Determine if publish/schedule actions should be enabled based on end selection requirements
-  const endSelectionIncomplete = React.useMemo(() => {
-    if (campaign?.state !== 'Draft') return false;
-    if (endMode === 'none') return false;
-    if (endMode === 'relative') {
-      const validInt = /^[0-9]+$/.test(endAfterAmount) && Number(endAfterAmount) > 0;
-      return !(validInt && endAfterUnit);
-    }
-    // specific
-    return !(endDateLocal && endTime);
-  }, [campaign?.state, endMode, endAfterAmount, endAfterUnit, endDateLocal, endTime]);
-
-  // Shared badge style for state
-  const badgeStyle = getBadgeStyle(campaign?.state);
-
+  // Badge style for campaign state
+  const badgeStyle = React.useMemo(() => getBadgeStyle(campaign?.state || 'Draft'), [campaign?.state]);
+  // Format helpers (PST display for demo)
+  const formatInPacific = (iso: string) => {
+    const utc = new Date(iso);
+    const pst = new Date(utc.getTime() - 8 * 60 * 60 * 1000);
+    return {
+      dateStr: pst.toLocaleDateString(),
+      timeStr: pst.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    };
+  };
+  const formatTimeAmPmPst = (hhmm: string) => {
+    if (!hhmm) return '';
+    const [h, m] = hhmm.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h || 0, m || 0, 0, 0);
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  };
+  // Partners
+  const [partners, setPartners] = useState<Array<{ id: number; name: string; active: boolean }>>([]);
+  const [partnerIdDraft, setPartnerIdDraft] = useState<number | null>(null);
+  // ...existing code...
+  // Load campaign data by ID
   const loadCampaign = useCallback(async (id: number) => {
     try {
       setLoading(true);
@@ -414,6 +405,7 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
       if (resp.success && resp.data) {
         setCampaign(resp.data);
         setTitleDraft(resp.data.title);
+        setPartnerIdDraft(resp.data.partnerId ?? null);
         // Build variants from config (supports legacy config)
         const cfgUnknown = resp.data.config as unknown;
         let nextVariants: Variant[] = [];
@@ -432,9 +424,7 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
           const inferredMarket = Array.isArray(resp.data.markets) && resp.data.markets.length === 1 ? resp.data.markets[0] : undefined;
           nextVariants = [{ id: String(Date.now()), market: inferredMarket, config: (resp.data.config ?? {}) as AnyConfig }];
         }
-        setVariantsDraft(nextVariants);
-  const cc = (resp.data.channelConfig as ChannelSettings | undefined) ?? {};
-        setBingUrl(cc.bingUrl ?? '');
+  setVariantsDraft(nextVariants);
       } else {
         setError(resp.message || 'Failed to load campaign');
       }
@@ -458,16 +448,15 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
           setCreating(true);
           const resp = await campaignService.createCampaign({
             title: 'New campaign draft',
-            channels: [],
             markets: 'all'
           });
           if (resp.success && resp.data) {
             setCampaign(resp.data);
             setTitleDraft(resp.data.title);
+            setPartnerIdDraft(resp.data.partnerId ?? null);
             // Initialize single empty variant for new draft
             setVariantsDraft([{ id: String(Date.now()), market: undefined, config: (resp.data.config ?? {}) as AnyConfig }]);
-            const cc = (resp.data.channelConfig as ChannelSettings | undefined) ?? {};
-            setBingUrl(cc.bingUrl ?? '');
+            // channel settings removed
             // Navigate to canonical route to prevent future re-creates on re-mounts
             navigate(`/campaigns/${resp.data.id}`, { replace: true });
           } else {
@@ -576,7 +565,7 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
         return;
       }
   // Save multi-variant content first so validation issues block the save clearly
-  const cfgResp = await campaignService.updateConfig(campaign.id, { variants: variantsDraft.map(v => ({ market: v.market, config: v.config })) });
+  const cfgResp = await campaignService.updateConfig(campaign.id, { variants: variantsPayload() });
       if (!cfgResp.success) {
         setError(cfgResp.message || 'Content validation failed');
         return;
@@ -599,17 +588,14 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
         const utcMsEnd = de.getTime() + 8 * 60 * 60 * 1000;
         isoEnd = new Date(utcMsEnd).toISOString();
       }
-  const payload: UpdateCampaignRequest = { title: titleDraft };
+  const payload: UpdateCampaignRequest = { title: titleDraft, partnerId: partnerIdDraft };
       if (isoStart !== undefined) payload.startDate = isoStart;
       if (endMode === 'none') {
         (payload as unknown as { endDate: null }).endDate = null;
       } else if (isoEnd !== undefined) {
         payload.endDate = isoEnd;
       }
-  // Persist Bing URL into channelConfig, preserving any other keys
-  const nextChannelConfig: ChannelSettings = { ...((campaign.channelConfig as ChannelSettings | undefined) ?? {}) };
-  nextChannelConfig.bingUrl = bingUrl;
-  (payload as unknown as { channelConfig?: ChannelSettings }).channelConfig = nextChannelConfig;
+      // channel settings removed from payload
       await campaignService.updateCampaign(campaign.id, payload);
       await loadCampaign(campaign.id);
     } catch (e) {
@@ -667,6 +653,20 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
     };
     loadTypes();
   }, []);
+  // Load partners once
+  useEffect(() => {
+    const loadPartners = async () => {
+      try {
+        const res = await partnerService.list();
+        if (res.success && Array.isArray(res.data)) {
+          setPartners(res.data);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadPartners();
+  }, []);
 
   // Content renderer replaced by multi-variant UI below
 
@@ -682,27 +682,16 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
     if (!campaign) return;
     try {
       setPublishing(true);
-      // Client-side channelConfig validation before any API calls
-  const nextChannelConfig: ChannelSettings = { ...((campaign.channelConfig as ChannelSettings | undefined) ?? {}) };
-      nextChannelConfig.bingUrl = bingUrl;
-  const chanErrors = validateChannelConfig(campaign.channels as unknown as Campaign['channels'], nextChannelConfig as unknown as Record<string, Record<string, unknown>>);
-      if (chanErrors.length > 0) {
-        setChannelErrors(chanErrors);
-        setError('Please fix channel settings before publishing.');
-        return;
-      } else {
-        setChannelErrors([]);
-      }
+  // channel gating removed
   // 1) Save content first so read-only mode reflects latest inputs
-  const cfgResp = await campaignService.updateConfig(campaign.id, { variants: variantsDraft.map(v => ({ market: v.market, config: v.config })) });
+  const cfgResp = await campaignService.updateConfig(campaign.id, { variants: variantsPayload() });
       if (!cfgResp.success) {
         setError(cfgResp.message || 'Content validation failed');
         return;
       }
 
-      // 2) Persist markets and channel settings (e.g., Bing URL)
-  // nextChannelConfig already prepared above
-
+  // 2) Persist markets only (no channel settings)
+  await campaignService.updateCampaign(campaign.id, { partnerId: partnerIdDraft } as UpdateCampaignRequest);
       // 3) Compute endDate if needed for immediate publish
       let endIso: string | null | undefined = undefined;
       if (endMode === 'relative') {
@@ -724,17 +713,16 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
         endIso = null; // explicitly clear end date
       }
 
-  const updatePayload: Partial<UpdateCampaignRequest> & { channelConfig?: ChannelSettings } = {
-        channelConfig: nextChannelConfig,
-      };
+  const updatePayload: Partial<UpdateCampaignRequest> = { partnerId: partnerIdDraft };
       if (endIso !== undefined) {
         // undefined => leave unchanged; null => clear; string => set
         (updatePayload as unknown as { endDate: string | null }).endDate = endIso as string | null;
       }
+  // channels removed
       await campaignService.updateCampaign(campaign.id, updatePayload as UpdateCampaignRequest);
 
       // 4) Transition to Live
-      const resp = await campaignService.publishCampaign(campaign.id);
+  const resp = await campaignService.publishCampaign(campaign.id);
       if (resp.success && resp.data) {
         // Reload to ensure we have the latest persisted config and metadata
         await loadCampaign(resp.data.id);
@@ -747,8 +735,12 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
       } else if (!resp.success) {
         setError(resp.message || 'Failed to publish campaign');
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to publish campaign');
+    } catch (e: unknown) {
+      // Extract server-side gating errors if present (e.g., 422 with errors array)
+      const maybe = e as { response?: { data?: unknown } } | undefined;
+      const data = maybe?.response?.data as { message?: string; errors?: unknown } | undefined;
+  // errors array not used (no channel gating)
+      setError((data?.message as string) || (e instanceof Error ? e.message : 'Failed to publish campaign'));
     } finally {
       setPublishing(false);
     }
@@ -759,26 +751,16 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
     try {
       if (!startDateLocal) return; // guard
       setScheduling(true);
-      // Client-side channelConfig validation before any API calls
-  const nextChannelConfig: ChannelSettings = { ...((campaign.channelConfig as ChannelSettings | undefined) ?? {}) };
-      nextChannelConfig.bingUrl = bingUrl;
-  const chanErrors = validateChannelConfig(campaign.channels as unknown as Campaign['channels'], nextChannelConfig as unknown as Record<string, Record<string, unknown>>);
-      if (chanErrors.length > 0) {
-        setChannelErrors(chanErrors);
-        setError('Please fix channel settings before scheduling.');
-        return;
-      } else {
-        setChannelErrors([]);
-      }
+  // channel gating removed
   // 1) Save content first so read-only mode reflects latest inputs
-  const cfgResp = await campaignService.updateConfig(campaign.id, { variants: variantsDraft.map(v => ({ market: v.market, config: v.config })) });
+  const cfgResp = await campaignService.updateConfig(campaign.id, { variants: variantsPayload() });
       if (!cfgResp.success) {
         setError(cfgResp.message || 'Content validation failed');
         return;
       }
 
-      // 2) Persist markets and channel settings before scheduling
-  await campaignService.updateCampaign(campaign.id, { channelConfig: nextChannelConfig } as UpdateCampaignRequest);
+  // 2) Persist markets only (no channel settings)
+  await campaignService.updateCampaign(campaign.id, { partnerId: partnerIdDraft } as UpdateCampaignRequest);
       // Convert selected local PST date/time to ISO UTC
       const [hh, mm] = startTime.split(':').map(Number);
       const d = new Date(startDateLocal);
@@ -802,7 +784,7 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
       } else if (endMode === 'none') {
         endUtcIso = undefined;
       }
-      const resp = await campaignService.scheduleCampaign(campaign.id, startUtcIso, endUtcIso);
+  const resp = await campaignService.scheduleCampaign(campaign.id, startUtcIso, endUtcIso);
       if (resp.success && resp.data) {
         await loadCampaign(resp.data.id);
         dispatchToast(
@@ -814,8 +796,12 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
       } else if (!resp.success) {
         setError(resp.message || 'Failed to schedule campaign');
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to schedule campaign');
+    } catch (e: unknown) {
+      // Extract server-side gating errors if present (e.g., 422 with errors array)
+      const maybe = e as { response?: { data?: unknown } } | undefined;
+      const data = maybe?.response?.data as { message?: string; errors?: unknown } | undefined;
+  // errors array not used (no channel gating)
+      setError((data?.message as string) || (e instanceof Error ? e.message : 'Failed to schedule campaign'));
     } finally {
       setScheduling(false);
     }
@@ -894,34 +880,48 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
 
   const headerActions = (
     <div className={styles.headerActions}>
-      {/* Secondary actions first */}
+      {/* Transparent icon-only actions first */}
+      <Button
+        appearance="transparent"
+        icon={<CopyAdd24Regular />}
+        onClick={handleDuplicate}
+        disabled={!campaign}
+        aria-label="Duplicate"
+        title="Duplicate"
+      />
+      {campaign?.state === 'Draft' && (
+        <Button
+          appearance="transparent"
+          icon={<LayerDiagonalSparkle24Regular />}
+          disabled={!campaign || usedMarkets.length >= AVAILABLE_MARKETS.length || variantsDraft.length === 0}
+          onClick={() => {
+            setAiSourceIndex(0);
+            // pick first unused market by default
+            const firstUnused = AVAILABLE_MARKETS.find(m => !usedMarkets.includes(m));
+            setAiTargetMarket(firstUnused || '');
+            setAiOpen(true);
+          }}
+          aria-label="AI Duplicate"
+          title="AI Duplicate"
+        />
+      )}
+      {campaign?.state === 'Draft' && (
+        <Button
+          appearance="transparent"
+          icon={<Delete24Regular />}
+          onClick={() => setDeleteOpen(true)}
+          disabled={!campaign}
+          aria-label="Delete draft"
+          title="Delete draft"
+        />
+      )}
+
+      {/* Then secondary action */}
       {campaign?.state === 'Draft' && (
         <Button appearance="secondary" onClick={handleSaveDraft} disabled={!campaign || saving || scheduleInvalid}>
           {saving ? 'Saving…' : 'Save Draft'}
         </Button>
       )}
-      {campaign?.state === 'Draft' && (
-        <Button appearance="secondary" icon={<Delete24Regular />} onClick={() => setDeleteOpen(true)} disabled={!campaign}>
-          Delete draft
-        </Button>
-      )}
-  <Button appearance="secondary" onClick={handleDuplicate} disabled={!campaign}>Duplicate</Button>
-  {campaign?.state === 'Draft' && (
-    <Button
-      appearance="secondary"
-      icon={<LayerDiagonalSparkle16Regular />}
-      disabled={!campaign || usedMarkets.length >= AVAILABLE_MARKETS.length || variantsDraft.length === 0}
-      onClick={() => {
-        setAiSourceIndex(0);
-        // pick first unused market by default
-        const firstUnused = AVAILABLE_MARKETS.find(m => !usedMarkets.includes(m));
-        setAiTargetMarket(firstUnused || '');
-        setAiOpen(true);
-      }}
-    >
-      AI Duplicate
-    </Button>
-  )}
 
       {/* Primary action last (rightmost) */}
       {campaign?.state === 'Live' && (
@@ -1056,6 +1056,37 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                     </span>
                   )}
                 </div>
+                {/* Partner selector under Campaign ID and type */}
+                <div className={styles.infoSection}>
+                  <Text className={styles.infoLabel}>Partner</Text>
+                  {campaign.state === 'Draft' ? (
+                    <Field className={styles.field}>
+                      <Dropdown
+                        selectedOptions={[partnerIdDraft !== null && partnerIdDraft !== undefined ? String(partnerIdDraft) : '']}
+                        placeholder="No Partner"
+                        button={{ children: (() => {
+                          const p = partners.find(p => p.id === partnerIdDraft);
+                          return p ? p.name : 'No Partner';
+                        })() }}
+                        onOptionSelect={(_, d) => {
+                          const v = d.optionValue as string | undefined;
+                          if (!v) {
+                            setPartnerIdDraft(null);
+                          } else {
+                            setPartnerIdDraft(Number(v));
+                          }
+                        }}
+                      >
+                        <Option value="">No Partner</Option>
+                        {partners.map(p => (
+                          <Option key={p.id} value={String(p.id)}>{p.name}</Option>
+                        ))}
+                      </Dropdown>
+                    </Field>
+                  ) : (
+                    <Text size={400} className={styles.infoValue}>{campaign.partner?.name || 'No Partner'}</Text>
+                  )}
+                </div>
 
                 {/* Divider across main content */}
                 <Divider className={styles.sectionDivider} />
@@ -1090,8 +1121,9 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                                 </Field>
                                 <div className={styles.variantActions}>
                                   <Button
-                                    appearance="secondary"
+                                    appearance="transparent"
                                     size="small"
+                                    icon={<CopyAdd24Regular />}
                                     onClick={() => {
                                       if (usedMarkets.length >= AVAILABLE_MARKETS.length) return;
                                       const copy = { id: `${v.id}-copy-${Date.now()}`, market: undefined, config: JSON.parse(JSON.stringify(v.config || {})) } as Variant;
@@ -1100,13 +1132,13 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                                       setVariantsDraft(next);
                                     }}
                                     disabled={usedMarkets.length >= AVAILABLE_MARKETS.length}
-                                  >
-                                    Duplicate
-                                  </Button>
+                                    aria-label="Duplicate"
+                                    title="Duplicate"
+                                  />
                                   <Button
-                                    appearance="secondary"
+                                    appearance="transparent"
                                     size="small"
-                                    icon={<LayerDiagonalSparkle16Regular />}
+                                    icon={<LayerDiagonalSparkle24Regular />}
                                     onClick={() => {
                                       const firstUnused = AVAILABLE_MARKETS.find(m => !usedMarkets.includes(m));
                                       setAiSourceIndex(idx);
@@ -1114,11 +1146,11 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                                       setAiOpen(true);
                                     }}
                                     disabled={usedMarkets.length >= AVAILABLE_MARKETS.length}
-                                  >
-                                    AI Duplicate
-                                  </Button>
+                                    aria-label="AI Duplicate"
+                                    title="AI Duplicate"
+                                  />
                                   <Button
-                                    appearance="secondary"
+                                    appearance="transparent"
                                     size="small"
                                     icon={<Delete24Regular />}
                                     onClick={() => {
@@ -1126,57 +1158,130 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                                       setVariantsDraft(variantsDraft.filter((_, i) => i !== idx));
                                     }}
                                     disabled={variantsDraft.length <= 1}
-                                  >
-                                    Delete
-                                  </Button>
+                                    aria-label="Delete"
+                                    title="Delete"
+                                  />
                                 </div>
                               </div>
                               <div className={styles.configForm}>
                                 {t === 'OFFER' && (
                                   <>
-                                    <Text>Offer Banners</Text>
                                     {Array.isArray((v.config as OfferConfig).banners)
                                       ? (v.config as OfferConfig).banners!.map((b: OfferBanner, bIdx: number) => (
                                           <div key={bIdx} className={styles.formRow}>
-                                            <Field label={`Image URL #${bIdx + 1}`}>
-                                              <Input value={b.imageUrl || ''} onChange={(_, d) => {
-                                                const next = [...variantsDraft];
-                                                const cfg = { ...(next[idx].config as OfferConfig) };
-                                                const arr = Array.isArray(cfg.banners) ? [...cfg.banners] : ([] as OfferBanner[]);
-                                                arr[bIdx] = { ...(arr[bIdx] || {}), imageUrl: d.value };
-                                                cfg.banners = arr;
-                                                next[idx] = { ...next[idx], config: cfg };
-                                                setVariantsDraft(next);
-                                              }} />
+                                            <Field label={<div className={styles.labelWithCounter}><span>Header</span><span className={styles.charCounterInline}>{30 - ((b.header || '').length)}</span></div>}>
+                                              <Input
+                                                maxLength={30}
+                                                value={b.header || ''}
+                                                onChange={(_, d) => {
+                                                  const value = (d.value || '').slice(0, 30);
+                                                  const next = [...variantsDraft];
+                                                  const cfg = { ...(next[idx].config as OfferConfig) };
+                                                  const arr = Array.isArray(cfg.banners) ? [...cfg.banners] : ([] as OfferBanner[]);
+                                                  arr[bIdx] = { ...(arr[bIdx] || {}), header: value };
+                                                  cfg.banners = arr;
+                                                  next[idx] = { ...next[idx], config: cfg };
+                                                  setVariantsDraft(next);
+                                                }}
+                                              />
                                             </Field>
-                                            <Field label="Header">
-                                              <Input value={b.header || ''} onChange={(_, d) => {
-                                                const next = [...variantsDraft];
-                                                const cfg = { ...(next[idx].config as OfferConfig) };
-                                                const arr = Array.isArray(cfg.banners) ? [...cfg.banners] : ([] as OfferBanner[]);
-                                                arr[bIdx] = { ...(arr[bIdx] || {}), header: d.value };
-                                                cfg.banners = arr;
-                                                next[idx] = { ...next[idx], config: cfg };
-                                                setVariantsDraft(next);
-                                              }} />
+                                            <Field label={<div className={styles.labelWithCounter}><span>Description</span><span className={styles.charCounterInline}>{75 - ((b.description || '').length)}</span></div>}>
+                                              <Input
+                                                maxLength={75}
+                                                value={b.description || ''}
+                                                onChange={(_, d) => {
+                                                  const value = (d.value || '').slice(0, 75);
+                                                  const next = [...variantsDraft];
+                                                  const cfg = { ...(next[idx].config as OfferConfig) };
+                                                  const arr = Array.isArray(cfg.banners) ? [...cfg.banners] : ([] as OfferBanner[]);
+                                                  arr[bIdx] = { ...(arr[bIdx] || {}), description: value };
+                                                  cfg.banners = arr;
+                                                  next[idx] = { ...next[idx], config: cfg };
+                                                  setVariantsDraft(next);
+                                                }}
+                                              />
                                             </Field>
-                                            <Field label="Description">
-                                              <Input value={b.description || ''} onChange={(_, d) => {
-                                                const next = [...variantsDraft];
-                                                const cfg = { ...(next[idx].config as OfferConfig) };
-                                                const arr = Array.isArray(cfg.banners) ? [...cfg.banners] : ([] as OfferBanner[]);
-                                                arr[bIdx] = { ...(arr[bIdx] || {}), description: d.value };
-                                                cfg.banners = arr;
-                                                next[idx] = { ...next[idx], config: cfg };
-                                                setVariantsDraft(next);
-                                              }} />
+                                            <Field label={<div className={styles.labelWithCounter}><span>CTA</span><span className={styles.charCounterInline}>{30 - ((b.cta || '').length)}</span></div>}>
+                                              <Input
+                                                maxLength={30}
+                                                value={b.cta || ''}
+                                                onChange={(_, d) => {
+                                                  const value = (d.value || '').slice(0, 30);
+                                                  const next = [...variantsDraft];
+                                                  const cfg = { ...(next[idx].config as OfferConfig) };
+                                                  const arr = Array.isArray(cfg.banners) ? [...cfg.banners] : ([] as OfferBanner[]);
+                                                  arr[bIdx] = { ...(arr[bIdx] || {}), cta: value };
+                                                  cfg.banners = arr;
+                                                  next[idx] = { ...next[idx], config: cfg };
+                                                  setVariantsDraft(next);
+                                                }}
+                                              />
                                             </Field>
+                                            <div className={styles.uploaderRow}>
+                                              {['1083x609', '1600x600', '593x303'].map(dim => (
+                                                <Field key={dim} label={dim}>
+                                                  <div className={styles.uploaderBox} aria-label={`Upload ${dim}`}>
+                                                    <Image24Regular />
+                                                    <Button appearance="secondary" size="small" disabled style={{ marginTop: 8 }}>Upload</Button>
+                                                  </div>
+                                                </Field>
+                                              ))}
+                                            </div>
+                                              <Field label="SKU">
+                                                <Input
+                                                  value={b.sku || ''}
+                                                  onChange={(_, d) => {
+                                                    const next = [...variantsDraft];
+                                                    const cfg = { ...(next[idx].config as OfferConfig) };
+                                                    const arr = Array.isArray(cfg.banners) ? [...cfg.banners] : ([] as OfferBanner[]);
+                                                    arr[bIdx] = { ...(arr[bIdx] || {}), sku: d.value };
+                                                    cfg.banners = arr;
+                                                    next[idx] = { ...next[idx], config: cfg };
+                                                    setVariantsDraft(next);
+                                                  }}
+                                                />
+                                              </Field>
+                                              <Field label="Form Label">
+                                                <Input
+                                                  value={b.formLabel || ''}
+                                                  onChange={(_, d) => {
+                                                    const next = [...variantsDraft];
+                                                    const cfg = { ...(next[idx].config as OfferConfig) };
+                                                    const arr = Array.isArray(cfg.banners) ? [...cfg.banners] : ([] as OfferBanner[]);
+                                                    arr[bIdx] = { ...(arr[bIdx] || {}), formLabel: d.value };
+                                                    cfg.banners = arr;
+                                                    next[idx] = { ...next[idx], config: cfg };
+                                                    setVariantsDraft(next);
+                                                  }}
+                                                />
+                                              </Field>
+                                              {(() => {
+                                                const sku = (b.sku || '').trim();
+                                                const fl = (b.formLabel || '').trim();
+                                                let content: string;
+                                                if (!sku && !fl) {
+                                                  content = 'Enter the SKU and Form Label in the field above';
+                                                } else if (!sku) {
+                                                  content = 'Enter the SKU in the field above';
+                                                } else if (!fl) {
+                                                  content = 'Enter the Form Label in the field above';
+                                                } else {
+                                                  const s = encodeURIComponent(sku);
+                                                  const f = encodeURIComponent(fl);
+                                                  content = `https://rewards.bing.com/redeem/${s}?form=${f}&OCID=${f}&PUBL=RewardsDO&CREA=${f}`;
+                                                }
+                                                return (
+                                                  <Field label="URL">
+                                                    <Text size={400} className={styles.infoValue}>{content}</Text>
+                                                  </Field>
+                                                );
+                                              })()}
                                           </div>
                                         ))
                                       : (
                                         <Button onClick={() => {
                                           const next = [...variantsDraft];
-                                          next[idx] = { ...next[idx], config: { banners: [{ imageUrl: '', header: '', description: '' }] } as OfferConfig };
+                                          next[idx] = { ...next[idx], config: { banners: [{ header: '', description: '', cta: '', sku: '', formLabel: '' }] } as OfferConfig };
                                           setVariantsDraft(next);
                                         }}>Add banner</Button>
                                       )}
@@ -1211,6 +1316,15 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                                         setVariantsDraft(next);
                                       }} />
                                     </Field>
+                                    <Checkbox
+                                      label="Record selection"
+                                      checked={Boolean((v.config as PollConfig).recordSelection)}
+                                      onChange={(_, data) => {
+                                        const next = [...variantsDraft];
+                                        next[idx] = { ...next[idx], config: { ...(v.config as PollConfig), recordSelection: !!data.checked } };
+                                        setVariantsDraft(next);
+                                      }}
+                                    />
                                   </div>
                                 )}
                                 {t === 'QUIZ' && (
@@ -1282,21 +1396,13 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                                 )}
                                 {/* Bing URL as last field (global) */}
                                 <div className={styles.formRow}>
-                                  <Field label="Bing URL">
-                                    <Input value={bingUrl} onChange={(_, d) => setBingUrl(d.value)} placeholder="https://www.bing.com/..." />
-                                  </Field>
-                                  {channelErrors.length > 0 && (
-                                    <div>
-                                      {channelErrors.map((e, i) => (
-                                        <Text key={i} className={styles.railError}>{e}</Text>
-                                      ))}
-                                    </div>
-                                  )}
+                                  {/* Global settings removed */}
                                 </div>
                               </div>
                             </Card>
                           );
                         })}
+                        {/* Channels & Settings removed */}
                         <div className={styles.addVariantRow}>
                           <Button
                             appearance="secondary"
@@ -1339,15 +1445,67 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                                         <>
                                           {banners.map((b: OfferBanner, bIdx: number) => (
                                             <div key={bIdx} className={styles.formRow}>
-                                              <Field label={`Image URL #${bIdx + 1}`}>
-                                                <Text size={400} className={styles.infoValue}>{dashIfEmpty(b.imageUrl)}</Text>
-                                              </Field>
                                               <Field label="Header">
                                                 <Text size={400} className={styles.infoValue}>{dashIfEmpty(b.header)}</Text>
                                               </Field>
                                               <Field label="Description">
                                                 <Text size={400} className={styles.infoValue}>{dashIfEmpty(b.description)}</Text>
                                               </Field>
+                                              <Field label="CTA">
+                                                <Text size={400} className={styles.infoValue}>{dashIfEmpty(b.cta)}</Text>
+                                              </Field>
+                                              <Field label="SKU">
+                                                <Text size={400} className={styles.infoValue}>{dashIfEmpty(b.sku)}</Text>
+                                              </Field>
+                                              <Field label="Form Label">
+                                                <Text size={400} className={styles.infoValue}>{dashIfEmpty(b.formLabel)}</Text>
+                                              </Field>
+                                              {(() => {
+                                                const sku = (b.sku || '').trim();
+                                                const fl = (b.formLabel || '').trim();
+                                                if (!sku || !fl) {
+                                                  return (
+                                                    <Field label="URL">
+                                                      <Text size={400} className={styles.infoValue}>—</Text>
+                                                    </Field>
+                                                  );
+                                                }
+                                                const s = encodeURIComponent(sku);
+                                                const f = encodeURIComponent(fl);
+                                                const url = `https://rewards.bing.com/redeem/${s}?form=${f}&OCID=${f}&PUBL=RewardsDO&CREA=${f}`;
+                                                return (
+                                                  <Field label="URL">
+                                                    <div className={styles.infoRow}>
+                                                      <Text size={400} className={styles.infoValue}>{url}</Text>
+                                                      <Button
+                                                        appearance="transparent"
+                                                        size="small"
+                                                        icon={<Copy24Regular />}
+                                                        aria-label="Copy URL"
+                                                        title="Copy URL"
+                                                        onClick={async () => {
+                                                          try {
+                                                            await navigator.clipboard.writeText(url);
+                                                            dispatchToast(
+                                                              <Toast>
+                                                                <ToastTitle>URL copied</ToastTitle>
+                                                              </Toast>,
+                                                              { intent: 'success' }
+                                                            );
+                                                          } catch {
+                                                            dispatchToast(
+                                                              <Toast>
+                                                                <ToastTitle>Failed to copy URL</ToastTitle>
+                                                              </Toast>,
+                                                              { intent: 'error' }
+                                                            );
+                                                          }
+                                                        }}
+                                                      />
+                                                    </div>
+                                                  </Field>
+                                                );
+                                              })()}
                                             </div>
                                           ))}
                                         </>
@@ -1402,18 +1560,7 @@ export const CampaignEditor: React.FC<CampaignEditorProps> = ({ isNewDraft }) =>
                                     </div>
                                   )}
                                   {/* Bing URL (global) */}
-                                  <div className={styles.formRow}>
-                                    <Field label="Bing URL">
-                                      <Text size={400} className={styles.infoValue}>{dashIfEmpty(((campaign.channelConfig as ChannelSettings | undefined)?.bingUrl) ?? '')}</Text>
-                                    </Field>
-                                    {channelErrors.length > 0 && (
-                                      <div>
-                                        {channelErrors.map((e, i) => (
-                                          <Text key={i} className={styles.railError}>{e}</Text>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
+                                  {/* Global settings removed */}
                                 </div>
                               </Card>
                             ))}

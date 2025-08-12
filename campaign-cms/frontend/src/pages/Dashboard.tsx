@@ -32,16 +32,29 @@ import {
   ArrowUpload16Regular,
 } from '@fluentui/react-icons';
 import { campaignService } from '../services/api';
+import { partnerService } from '../services/api';
 import { getBadgeStyle } from '../constants/stateBadge';
-import type { Campaign, CampaignState, Channel } from '../types/Campaign';
+import type { Campaign, CampaignState } from '../types/Campaign';
 import { Header } from '../components/Header';
 import { Loading } from '../components/Loading';
 // CreateCampaignModal removed in Phase 5 in favor of dedicated editor page
-import { FilterPanel, type DateFilterOption } from '../components/FilterPanel';
+import { FilterPanel, type DateFilterOption, type DateFieldOption } from '../components/FilterPanel';
 import { LeftNavigation } from '../components/LeftNavigation';
 import { format, isAfter, isBefore, subDays, startOfDay } from 'date-fns';
 
 // (no-op)
+
+type VisibleColumns = {
+  title: boolean;
+  campaignId: boolean;
+  state: boolean;
+  partner: boolean;
+  startDate: boolean;
+  endDate: boolean;
+  markets: boolean;
+  updatedAt: boolean;
+  actions: boolean;
+};
 
 const useStyles = makeStyles({
   root: {
@@ -154,27 +167,60 @@ export const Dashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [stateFilter, setStateFilter] = useState<CampaignState | 'all'>('all');
   const [marketFilter, setMarketFilter] = useState<string>('any');
-  const [channelFilter, setChannelFilter] = useState<string>('any');
+  const [partnerFilter, setPartnerFilter] = useState<string>('any');
+  // channel filter removed
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('all');
+  const [dateField, setDateField] = useState<DateFieldOption>('updatedAt');
   const [customDate, setCustomDate] = useState<Date | null>(null);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState<boolean>(true);
+  const [partners, setPartners] = useState<Array<{ id: number; name: string; active: boolean }>>([]);
   // removed gridPulse state
-  const [visibleColumns, setVisibleColumns] = useState<{
-    title: boolean;
-    campaignId: boolean;
-    state: boolean;
-    channels: boolean;
-    markets: boolean;
-    updatedAt: boolean;
-    actions: boolean;
-  }>({
-    title: true,
-    campaignId: false, // Hidden by default
-    state: true,
-    channels: true,
-    markets: false, // Hidden by default
-    updatedAt: true,
-    actions: true,
+  const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>(() => {
+    const defaults: VisibleColumns = {
+      title: true,
+      campaignId: false, // Hidden by default
+      state: true,
+      // channels removed
+      partner: false,
+      startDate: false, // Hidden by default
+      endDate: false, // Hidden by default
+      markets: false, // Hidden by default
+      updatedAt: true,
+      actions: true,
+    };
+    try {
+      const KEY = 'dashboard.visibleColumns.v1';
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(KEY) : null;
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<VisibleColumns> | null;
+        const keys: (keyof VisibleColumns)[] = [
+          'title',
+          'campaignId',
+          'state',
+          'partner',
+          'startDate',
+          'endDate',
+          'markets',
+          'updatedAt',
+          'actions',
+        ];
+        const merged: VisibleColumns = { ...defaults };
+        if (saved && typeof saved === 'object') {
+          keys.forEach((k) => {
+            const v = saved[k];
+            if (typeof v === 'boolean') {
+              merged[k] = v;
+            }
+          });
+        }
+        // Enforce required column
+        merged.title = true;
+        return merged;
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return { ...defaults };
   });
   // Backend fetch currently ignores client-side filters except pagination; simplified for Phase 5 draft work
 
@@ -201,9 +247,10 @@ export const Dashboard: React.FC = () => {
     campaigns: Campaign[], 
     query: string, 
     stateFilter: CampaignState | 'all', 
-    marketFilter: string, 
-    channelFilter: string,
-    dateFilter: DateFilterOption,
+    marketFilter: string,
+    partnerFilter: string,
+  dateFilter: DateFilterOption,
+  dateField: DateFieldOption,
     customDate: Date | null
   ): Campaign[] => {
   let filtered = campaigns.filter(c => c.state !== 'Deleted');
@@ -211,6 +258,16 @@ export const Dashboard: React.FC = () => {
     // Apply state filter first
     if (stateFilter !== 'all') {
       filtered = filtered.filter(campaign => campaign.state === stateFilter);
+    }
+
+    // Apply partner filter
+    if (partnerFilter !== 'any') {
+      if (partnerFilter === 'none') {
+        filtered = filtered.filter(c => !c.partnerId);
+      } else {
+        const pid = Number(partnerFilter);
+        filtered = filtered.filter(c => c.partnerId === pid);
+      }
     }
 
     // Apply market filter
@@ -232,18 +289,18 @@ export const Dashboard: React.FC = () => {
       });
     }
 
-    // Apply channel filter
-    if (channelFilter !== 'any') {
-      filtered = filtered.filter(campaign => {
-        return campaign.channels.includes(channelFilter as Channel);
-      });
-    }
+  // Channel filtering removed
 
-    // Apply date filter
+  // Apply date filter (based on selected date field)
     if (dateFilter !== 'all') {
       const now = new Date();
       filtered = filtered.filter(campaign => {
-        const campaignDate = new Date(campaign.updatedAt);
+    let source: string | undefined;
+    if (dateField === 'updatedAt') source = campaign.updatedAt as unknown as string;
+    else if (dateField === 'startDate') source = campaign.startDate as unknown as string | undefined;
+    else if (dateField === 'endDate') source = campaign.endDate as unknown as string | undefined;
+    if (!source) return false;
+    const campaignDate = new Date(source);
         
         switch (dateFilter) {
           case 'last7days':
@@ -278,10 +335,7 @@ export const Dashboard: React.FC = () => {
           return true;
         }
 
-        // Search in channels
-        if (campaign.channels.some(channel => channel.toLowerCase().includes(searchTerm))) {
-          return true;
-        }
+  // Channel search removed
 
         // Search in markets
         if (typeof campaign.markets === 'string') {
@@ -347,11 +401,44 @@ export const Dashboard: React.FC = () => {
       ),
     }),
     // Channels column (optional)
-    visibleColumns.channels && createTableColumn<Campaign>({
-      columnId: 'channels',
-      renderHeaderCell: () => 'Channels',
+  // Channels column removed
+    // Partner column (optional)
+    visibleColumns.partner && createTableColumn<Campaign>({
+      columnId: 'partner',
+      compare: (a, b) => (a.partner?.name || '').localeCompare(b.partner?.name || ''),
+      renderHeaderCell: () => 'Partner',
       renderCell: (item) => (
-        <Text>{item.channels.join(', ')}</Text>
+        <Text>{item.partner?.name || 'No Partner'}</Text>
+      ),
+    }),
+    // Start Date column (optional)
+    visibleColumns.startDate && createTableColumn<Campaign>({
+      columnId: 'startDate',
+      compare: (a, b) => {
+        const ta = a.startDate ? new Date(a.startDate).getTime() : 0;
+        const tb = b.startDate ? new Date(b.startDate).getTime() : 0;
+        return ta - tb;
+      },
+      renderHeaderCell: () => 'Start Date',
+      renderCell: (item) => (
+        <Text>
+          {item.state === 'Draft' ? '-' : (item.startDate ? format(new Date(item.startDate), 'MMM dd, yyyy') : '-')}
+        </Text>
+      ),
+    }),
+    // End Date column (optional)
+    visibleColumns.endDate && createTableColumn<Campaign>({
+      columnId: 'endDate',
+      compare: (a, b) => {
+        const ta = a.endDate ? new Date(a.endDate).getTime() : 0;
+        const tb = b.endDate ? new Date(b.endDate).getTime() : 0;
+        return ta - tb;
+      },
+      renderHeaderCell: () => 'End Date',
+      renderCell: (item) => (
+        <Text>
+          {item.state === 'Draft' ? '-' : (item.endDate ? format(new Date(item.endDate), 'MMM dd, yyyy') : 'No end date')}
+        </Text>
       ),
     }),
     // Markets column (optional, hidden by default)
@@ -395,12 +482,36 @@ export const Dashboard: React.FC = () => {
 
   // Load campaigns on component mount and when filters change
   useEffect(() => { loadCampaigns(); }, []);
-
-  // Apply client-side filtering whenever campaigns, searchQuery, stateFilter, marketFilter, channelFilter, dateFilter, or customDate changes
+  // Persist visible columns whenever they change
   useEffect(() => {
-    const filtered = searchCampaigns(campaigns, searchQuery, stateFilter, marketFilter, channelFilter, dateFilter, customDate);
+    try {
+      const KEY = 'dashboard.visibleColumns.v1';
+      // Ensure required column stays true
+      const toStore = { ...visibleColumns, title: true };
+      localStorage.setItem(KEY, JSON.stringify(toStore));
+    } catch {
+      // ignore storage errors
+    }
+  }, [visibleColumns]);
+  useEffect(() => {
+    const loadPartners = async () => {
+      try {
+        const res = await partnerService.list();
+        if (res.success && Array.isArray(res.data)) {
+          setPartners(res.data);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadPartners();
+  }, []);
+
+  // Apply client-side filtering whenever campaigns, searchQuery, stateFilter, marketFilter, partnerFilter, dateFilter, dateField, or customDate changes
+  useEffect(() => {
+    const filtered = searchCampaigns(campaigns, searchQuery, stateFilter, marketFilter, partnerFilter, dateFilter, dateField, customDate);
     setFilteredCampaigns(filtered);
-  }, [campaigns, searchQuery, stateFilter, marketFilter, channelFilter, dateFilter, customDate]);
+  }, [campaigns, searchQuery, stateFilter, marketFilter, partnerFilter, dateFilter, dateField, customDate]);
 
   // Handle search input change
   const handleSearchChange = (value: string) => {
@@ -416,10 +527,11 @@ export const Dashboard: React.FC = () => {
   const handleMarketFilterChange = (market: string) => {
     setMarketFilter(market);
   };
-
-  const handleChannelFilterChange = (channel: string) => {
-    setChannelFilter(channel);
+  const handlePartnerFilterChange = (partner: string) => {
+    setPartnerFilter(partner);
   };
+
+  // channel filter removed
 
   // Handle date filter change
   const handleDateFilterChange = (filter: DateFilterOption) => {
@@ -428,6 +540,9 @@ export const Dashboard: React.FC = () => {
     if (filter !== 'beforeCustom' && filter !== 'afterCustom') {
       setCustomDate(null);
     }
+  };
+  const handleDateFieldChange = (field: DateFieldOption) => {
+    setDateField(field);
   };
 
   // Handle custom date change
@@ -488,14 +603,19 @@ export const Dashboard: React.FC = () => {
                 searchQuery={searchQuery}
                 stateFilter={stateFilter}
                 marketFilter={marketFilter}
-                channelFilter={channelFilter}
-                dateFilter={dateFilter}
+                partnerFilter={partnerFilter}
+                partners={partners}
+                // channelFilter removed
+              dateFilter={dateFilter}
+              dateField={dateField}
                 customDate={customDate}
                 onSearchChange={handleSearchChange}
                 onStateFilterChange={handleStateFilterChange}
                 onMarketFilterChange={handleMarketFilterChange}
-                onChannelFilterChange={handleChannelFilterChange}
-                onDateFilterChange={handleDateFilterChange}
+                onPartnerFilterChange={handlePartnerFilterChange}
+                // onChannelFilterChange removed
+              onDateFilterChange={handleDateFilterChange}
+              onDateFieldChange={handleDateFieldChange}
                 onCustomDateChange={handleCustomDateChange}
                 totalCampaigns={0}
                 filteredCount={0}
@@ -573,11 +693,24 @@ export const Dashboard: React.FC = () => {
                     State
                   </MenuItem>
                   <MenuItem
-                    icon={visibleColumns.channels ? <CheckboxChecked24Regular /> : <CheckboxUnchecked24Regular />}
-                    onClick={() => toggleColumnVisibility('channels')}
+                    icon={visibleColumns.partner ? <CheckboxChecked24Regular /> : <CheckboxUnchecked24Regular />}
+                    onClick={() => toggleColumnVisibility('partner')}
                   >
-                    Channels
+                    Partner
                   </MenuItem>
+                  <MenuItem
+                    icon={visibleColumns.startDate ? <CheckboxChecked24Regular /> : <CheckboxUnchecked24Regular />}
+                    onClick={() => toggleColumnVisibility('startDate')}
+                  >
+                    Start Date
+                  </MenuItem>
+                  <MenuItem
+                    icon={visibleColumns.endDate ? <CheckboxChecked24Regular /> : <CheckboxUnchecked24Regular />}
+                    onClick={() => toggleColumnVisibility('endDate')}
+                  >
+                    End Date
+                  </MenuItem>
+                  {/* Channels column removed */}
                   <MenuItem
                     icon={visibleColumns.markets ? <CheckboxChecked24Regular /> : <CheckboxUnchecked24Regular />}
                     onClick={() => toggleColumnVisibility('markets')}
@@ -600,7 +733,7 @@ export const Dashboard: React.FC = () => {
               </MenuPopover>
             </Menu>
             
-            <Button
+              <Button
               appearance="subtle"
               icon={<Filter24Regular />}
               onClick={toggleFilterPanel}
@@ -650,18 +783,23 @@ export const Dashboard: React.FC = () => {
 
         <div className={`${styles.panelContainer} ${!isFilterPanelOpen ? styles.panelContainerClosed : ''}`}>
           <div className={`${styles.panelInner} ${!isFilterPanelOpen ? styles.panelInnerClosed : ''}`}>
-            <FilterPanel
+              <FilterPanel
               searchQuery={searchQuery}
               stateFilter={stateFilter}
               marketFilter={marketFilter}
-              channelFilter={channelFilter}
+              partnerFilter={partnerFilter}
+              partners={partners}
+                // channelFilter removed
               dateFilter={dateFilter}
+              dateField={dateField}
               customDate={customDate}
               onSearchChange={handleSearchChange}
               onStateFilterChange={handleStateFilterChange}
               onMarketFilterChange={handleMarketFilterChange}
-              onChannelFilterChange={handleChannelFilterChange}
+              onPartnerFilterChange={handlePartnerFilterChange}
+                // onChannelFilterChange removed
               onDateFilterChange={handleDateFilterChange}
+              onDateFieldChange={handleDateFieldChange}
               onCustomDateChange={handleCustomDateChange}
               totalCampaigns={campaigns.length}
               filteredCount={filteredCampaigns.length}

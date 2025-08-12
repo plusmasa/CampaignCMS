@@ -1,15 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button,
   Radio,
   RadioGroup,
-  Label,
-  Body1,
   makeStyles,
   shorthands,
-  Dropdown,
-  Option,
   Spinner,
   MessageBar,
 } from '@fluentui/react-components';
@@ -18,10 +14,20 @@ import { LeftNavigation } from '../components/LeftNavigation';
 import { campaignService, typesService } from '../services/api';
 
 interface CampaignTypeInfo {
-  type: 'OFFER' | 'POLL' | 'QUIZ' | 'QUEST';
+  type: 'OFFER' | 'POLL' | 'QUIZ' | 'QUEST' | 'HERO_BANNER';
   label: string;
-  presets: Array<{ label: string; questionCount?: number }>;
+  presets: Array<{ label: string; questionCount?: number }>
+  disabled?: boolean;
 }
+
+// UI option for flattened type selection (e.g., QUIZ:3, QUIZ:10)
+type TypeOption = {
+  id: string; // e.g., 'OFFER' | 'QUIZ:3'
+  type: CampaignTypeInfo['type'];
+  label: string;
+  preset?: { questionCount?: number };
+  disabled?: boolean;
+};
 
 const useStyles = makeStyles({
   root: { display: 'flex', height: '100vh', overflow: 'hidden' },
@@ -39,8 +45,7 @@ export const NewCampaign: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [types, setTypes] = useState<CampaignTypeInfo[]>([]);
-  const [selectedType, setSelectedType] = useState<CampaignTypeInfo['type'] | null>(null);
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -50,14 +55,20 @@ export const NewCampaign: React.FC = () => {
         setError(null);
         const res = await typesService.getTypes();
         if (!res.success) throw new Error(res.message || 'Failed to load types');
-        setTypes(res.data || []);
-        // Deep link preselect
+        const loaded = res.data || [];
+        setTypes(loaded);
+        // Deep link preselect -> map (type,preset) to option id
         const type = searchParams.get('type');
         const preset = searchParams.get('preset');
-        if (type && ['OFFER', 'POLL', 'QUIZ', 'QUEST'].includes(type)) {
-          setSelectedType(type as CampaignTypeInfo['type']);
+  if (type && ['OFFER', 'POLL', 'QUIZ', 'QUEST', 'HERO_BANNER'].includes(type)) {
+          if (type === 'QUIZ') {
+            const count = preset && !Number.isNaN(Number(preset)) ? Number(preset) : undefined;
+            const id = count ? `QUIZ:${count}` : 'QUIZ:3';
+            setSelectedOptionId(id);
+          } else {
+            setSelectedOptionId(type);
+          }
         }
-        if (preset) setSelectedPreset(preset);
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'Failed to load types';
         setError(msg);
@@ -68,14 +79,35 @@ export const NewCampaign: React.FC = () => {
     init();
   }, [searchParams]);
 
+  const options: TypeOption[] = useMemo(() => {
+    const opts: TypeOption[] = [];
+    for (const t of types) {
+      if (t.type === 'QUIZ' && Array.isArray(t.presets) && t.presets.length) {
+        for (const p of t.presets) {
+          const count = typeof p.questionCount === 'number' ? p.questionCount : undefined;
+          if (!count) continue;
+          const label = `Quiz - ${count} question${count === 1 ? '' : 's'}`;
+          opts.push({ id: `QUIZ:${count}`, type: 'QUIZ', label, preset: { questionCount: count } });
+        }
+      } else {
+        opts.push({ id: t.type, type: t.type, label: t.label, disabled: t.disabled });
+      }
+    }
+    return opts;
+  }, [types]);
+
   const onContinue = async () => {
-    if (!selectedType) return;
+    if (!selectedOptionId) return;
     try {
       setCreating(true);
       setError(null);
-      const presetPayload = selectedType === 'QUIZ' && selectedPreset ? { questionCount: Number(selectedPreset) } : undefined;
-      const payload = { title: 'Untitled Campaign', channels: [], markets: 'all', type: selectedType, preset: presetPayload } as {
-        title: string; channels: []; markets: 'all'; type: 'OFFER'|'POLL'|'QUIZ'|'QUEST'; preset?: { questionCount?: number };
+      const selected = options.find(o => o.id === selectedOptionId);
+      if (!selected) throw new Error('No type selected');
+      const payload = {
+        title: 'Untitled Campaign',
+        markets: 'all' as const,
+        type: selected.type,
+        preset: selected.preset,
       };
       const res = await campaignService.createCampaign(payload);
       if (!res.success || !res.data) throw new Error(res.message || 'Create failed');
@@ -100,28 +132,17 @@ export const NewCampaign: React.FC = () => {
               <MessageBar intent="error">{error}</MessageBar>
             ) : (
               <>
-                <RadioGroup value={selectedType ?? ''} onChange={(_, data: { value: string }) => setSelectedType(data.value as CampaignTypeInfo['type'])}>
-                  {types.map((t) => (
-                    <Radio key={t.type} value={t.type} label={t.label} />
+                <RadioGroup value={selectedOptionId ?? ''} onChange={(_, data: { value: string }) => setSelectedOptionId(data.value)}>
+                  {options.map((opt) => (
+                    <Radio key={opt.id} value={opt.id} label={opt.label} disabled={opt.disabled} />
                   ))}
                 </RadioGroup>
 
                 <div className={styles.actions}>
                   <Button appearance="secondary" onClick={() => navigate('/')}>Cancel</Button>
-                  <Button appearance="primary" disabled={!selectedType || creating} onClick={onContinue}>Continue</Button>
+                  <Button appearance="primary" disabled={!selectedOptionId || creating} onClick={onContinue}>Continue</Button>
                 </div>
 
-                {selectedType === 'QUIZ' && (
-                  <div className={styles.presetRow}>
-                    <Label>Preset</Label>
-                    <Dropdown value={selectedPreset ?? ''} onOptionSelect={(_, d) => setSelectedPreset(d.optionValue ?? null)}>
-                      {(types.find(t => t.type === 'QUIZ')?.presets || []).map((p) => (
-                        <Option key={p.label} value={String(p.questionCount || '')}>{p.label}</Option>
-                      ))}
-                    </Dropdown>
-                    <Body1>Choose 3 or 10 questions.</Body1>
-                  </div>
-                )}
               </>
             )}
           </div>

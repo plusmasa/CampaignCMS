@@ -16,18 +16,11 @@ describe('Campaign Model - validation branches', () => {
     await Campaign.destroy({ where: {} });
   });
 
-  test('invalid channel value rejects with validation error', async () => {
-    await expect(Campaign.create({
-      title: 'Invalid Channel',
-      channels: ['Invalid'],
-      markets: ['US']
-    })).rejects.toThrow(/Invalid channel/);
-  });
+  // channels removed: no channel validation
 
   test('invalid market value rejects with validation error', async () => {
     await expect(Campaign.create({
       title: 'Invalid Market',
-      channels: ['Email'],
       markets: ['XX']
     })).rejects.toThrow(/Invalid market/);
   });
@@ -37,7 +30,6 @@ describe('Campaign Model - validation branches', () => {
     const end = new Date(Date.now()); // now
     await expect(Campaign.create({
       title: 'Bad Dates',
-      channels: ['Email'],
       markets: ['US'],
       startDate: start,
       endDate: end
@@ -47,7 +39,6 @@ describe('Campaign Model - validation branches', () => {
   test('beforeValidate sets campaignId automatically on create', async () => {
     const c = await Campaign.create({
       title: 'Auto ID',
-      channels: ['Email'],
       markets: ['US']
     });
     expect(typeof c.campaignId).toBe('string');
@@ -58,7 +49,6 @@ describe('Campaign Model - validation branches', () => {
   test('markets "all" passes validation', async () => {
     const c = await Campaign.create({
       title: 'All Markets',
-      channels: ['Email'],
       markets: 'all'
     });
     expect(c.markets).toBe('all');

@@ -21,6 +21,8 @@ export type DateFilterOption =
   | 'beforeCustom' 
   | 'afterCustom';
 
+export type DateFieldOption = 'updatedAt' | 'startDate' | 'endDate';
+
 const useStyles = makeStyles({
   panel: {
   width: '300px',
@@ -48,20 +50,28 @@ const useStyles = makeStyles({
     fontSize: '12px',
     color: 'var(--colorNeutralForeground2)',
   },
+  columnFlex: {
+    display: 'flex',
+    flexDirection: 'column',
+    rowGap: '8px',
+  },
 });
 
 interface FilterPanelProps {
   searchQuery: string;
   stateFilter: CampaignState | 'all';
   marketFilter: string;
-  channelFilter: string;
+  partnerFilter: string; // 'any' | 'none' | partnerId as string
+  partners: Array<{ id: number; name: string; active: boolean }>;
   dateFilter: DateFilterOption;
+  dateField: DateFieldOption;
   customDate: Date | null;
   onSearchChange: (value: string) => void;
   onStateFilterChange: (state: CampaignState | 'all') => void;
   onMarketFilterChange: (market: string) => void;
-  onChannelFilterChange: (channel: string) => void;
+  onPartnerFilterChange: (partner: string) => void;
   onDateFilterChange: (filter: DateFilterOption) => void;
+  onDateFieldChange: (field: DateFieldOption) => void;
   onCustomDateChange: (date: Date | null) => void;
   totalCampaigns: number;
   filteredCount: number;
@@ -71,14 +81,17 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   searchQuery,
   stateFilter,
   marketFilter,
-  channelFilter,
+  partnerFilter,
+  partners,
   dateFilter,
+  dateField,
   customDate,
   onSearchChange,
   onStateFilterChange,
   onMarketFilterChange,
-  onChannelFilterChange,
+  onPartnerFilterChange,
   onDateFilterChange,
+  onDateFieldChange,
   onCustomDateChange,
   totalCampaigns,
   filteredCount,
@@ -148,47 +161,72 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
       </div>
 
       <div className={styles.filterSection}>
-        <Field label="Channel">
-          <Dropdown 
+        <Field label="Partner">
+          <Dropdown
             className={styles.dropdown}
-            placeholder="Any Channel" 
+            placeholder="Any Partner"
             defaultSelectedOptions={["any"]}
-            defaultValue="Any Channel"
+            defaultValue="Any Partner"
             onOptionSelect={(_, data) => {
-              if (data.optionValue) {
-                onChannelFilterChange(data.optionValue);
+              if (data.optionValue !== undefined) {
+                onPartnerFilterChange(String(data.optionValue));
               }
             }}
           >
-            <Option value="any">Any Channel</Option>
-            <Option value="Email">Email</Option>
-            <Option value="BNP">BNP</Option>
-            <Option value="Rewards Dashboard">Rewards Dashboard</Option>
+            <Option value="any">Any Partner</Option>
+            <Option value="none">No Partner</Option>
+            {partners.map(p => (
+              <Option key={p.id} value={String(p.id)}>{p.name}</Option>
+            ))}
           </Dropdown>
         </Field>
       </div>
 
+  {/* Channel filter removed */}
+
       <div className={styles.filterSection}>
         <Field label="Filter by Date">
-          <Dropdown 
-            className={styles.dropdown}
-            placeholder="Any Date" 
-            defaultSelectedOptions={["all"]}
-            defaultValue="Any Date"
-            onOptionSelect={(_, data) => {
-              if (data.optionValue) {
-                onDateFilterChange(data.optionValue as DateFilterOption);
+          {/* Date field selector */}
+          <div className={styles.columnFlex}>
+            <Dropdown
+              className={styles.dropdown}
+              placeholder="Last modified"
+              defaultSelectedOptions={[dateField]}
+              defaultValue={
+                dateField === 'updatedAt' ? 'Last modified' : dateField === 'startDate' ? 'Start date' : 'End date'
               }
-            }}
-          >
-            <Option value="all">Any Date</Option>
-            <Option value="last7days">Last 7 Days</Option>
-            <Option value="last30days">Last 30 Days</Option>
-            <Option value="last90days">Last 90 Days</Option>
-            <Option value="last365days">Last 365 Days</Option>
-            <Option value="beforeCustom">Before Custom Date</Option>
-            <Option value="afterCustom">After Custom Date</Option>
-          </Dropdown>
+              onOptionSelect={(_, data) => {
+                if (data.optionValue) {
+                  onDateFieldChange(data.optionValue as DateFieldOption);
+                }
+              }}
+            >
+              <Option value="updatedAt">Last modified</Option>
+              <Option value="startDate">Start date</Option>
+              <Option value="endDate">End date</Option>
+            </Dropdown>
+
+            {/* Date range selector */}
+            <Dropdown 
+              className={styles.dropdown}
+              placeholder="Any Date" 
+              defaultSelectedOptions={["all"]}
+              defaultValue="Any Date"
+              onOptionSelect={(_, data) => {
+                if (data.optionValue) {
+                  onDateFilterChange(data.optionValue as DateFilterOption);
+                }
+              }}
+            >
+              <Option value="all">Any Date</Option>
+              <Option value="last7days">Last 7 Days</Option>
+              <Option value="last30days">Last 30 Days</Option>
+              <Option value="last90days">Last 90 Days</Option>
+              <Option value="last365days">Last 365 Days</Option>
+              <Option value="beforeCustom">Before Custom Date</Option>
+              <Option value="afterCustom">After Custom Date</Option>
+            </Dropdown>
+          </div>
         </Field>
         
         {(dateFilter === 'beforeCustom' || dateFilter === 'afterCustom') && (
@@ -227,21 +265,22 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
               In {marketFilter === 'all' ? 'all markets' : marketFilter + ' market'}
             </>
           )}
-          {channelFilter !== 'any' && (
+          {partnerFilter !== 'any' && (
             <>
               <br />
-              Using {channelFilter} channel
+              {partnerFilter === 'none' ? 'Without a partner' : `Partner: ${(partners.find(p => String(p.id) === partnerFilter)?.name) || '—'}`}
             </>
           )}
-          {dateFilter !== 'all' && (
+          {/* Channel summary removed */}
+      {dateFilter !== 'all' && (
             <>
-              <br />
-              {dateFilter === 'last7days' && 'Modified in last 7 days'}
-              {dateFilter === 'last30days' && 'Modified in last 30 days'}
-              {dateFilter === 'last90days' && 'Modified in last 90 days'}
-              {dateFilter === 'last365days' && 'Modified in last 365 days'}
-              {dateFilter === 'beforeCustom' && customDate && `Modified before ${customDate.toLocaleDateString()}`}
-              {dateFilter === 'afterCustom' && customDate && `Modified after ${customDate.toLocaleDateString()}`}
+        <br />
+        {dateFilter === 'last7days' && `${dateField === 'updatedAt' ? 'Modified' : dateField === 'startDate' ? 'Start date' : 'End date'} in last 7 days`}
+        {dateFilter === 'last30days' && `${dateField === 'updatedAt' ? 'Modified' : dateField === 'startDate' ? 'Start date' : 'End date'} in last 30 days`}
+        {dateFilter === 'last90days' && `${dateField === 'updatedAt' ? 'Modified' : dateField === 'startDate' ? 'Start date' : 'End date'} in last 90 days`}
+        {dateFilter === 'last365days' && `${dateField === 'updatedAt' ? 'Modified' : dateField === 'startDate' ? 'Start date' : 'End date'} in last 365 days`}
+        {dateFilter === 'beforeCustom' && customDate && `${dateField === 'updatedAt' ? 'Modified' : dateField === 'startDate' ? 'Start date' : 'End date'} before ${customDate.toLocaleDateString()}`}
+        {dateFilter === 'afterCustom' && customDate && `${dateField === 'updatedAt' ? 'Modified' : dateField === 'startDate' ? 'Start date' : 'End date'} after ${customDate.toLocaleDateString()}`}
             </>
           )}
         </Text>

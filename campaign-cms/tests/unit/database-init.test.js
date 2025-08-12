@@ -95,7 +95,6 @@ describe('Database Initialization', () => {
       const firstCampaign = seedData[0];
       expect(firstCampaign).toHaveProperty('title');
       expect(firstCampaign).toHaveProperty('state');
-      expect(firstCampaign).toHaveProperty('channels');
       expect(firstCampaign).toHaveProperty('markets');
     });
 
@@ -120,18 +119,6 @@ describe('Database Initialization', () => {
       expect(states).toContain('Complete');
     });
 
-    it('should create campaigns with different channel combinations', async () => {
-      Campaign.findOne.mockResolvedValue(null);
-      Campaign.bulkCreate.mockResolvedValue([]);
-
-      await seedDatabase();
-
-      const seedData = Campaign.bulkCreate.mock.calls[0][0];
-      const channelCombinations = seedData.map(campaign => campaign.channels);
-      
-      // Should have variety of channel combinations
-      expect(channelCombinations.some(channels => channels.includes('Email'))).toBe(true);
-      expect(channelCombinations.some(channels => channels.includes('BNP'))).toBe(true);
-    });
+  // channels removed: no per-campaign channel combinations in seed data
   });
 });

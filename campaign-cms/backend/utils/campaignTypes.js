@@ -9,7 +9,9 @@ const TYPES = [
     { label: 'Quiz 3', questionCount: 3 },
     { label: 'Quiz 10', questionCount: 10 }
   ] },
-  { type: 'QUEST', label: 'Quest', presets: [] }
+  { type: 'QUEST', label: 'Quest', presets: [] },
+  // Placeholder for future work: disabled until implemented
+  { type: 'HERO_BANNER', label: 'Dashboard Hero Banner', presets: [], disabled: true }
 ];
 
 function getTypes() {
@@ -19,7 +21,7 @@ function getTypes() {
 function templateFor(type, preset) {
   switch (type) {
   case 'OFFER':
-    return { config: { banners: [{ imageUrl: '', header: '', description: '' }] }, templateVersion: latestTemplateVersion };
+    return { config: { banners: [{ imageUrl: '', header: '', description: '', cta: '', sku: '', formLabel: '' }] }, templateVersion: latestTemplateVersion };
   case 'POLL':
     return { config: { question: '', options: ['', ''], recordSelection: true }, templateVersion: latestTemplateVersion };
   case 'QUIZ': {
@@ -33,6 +35,10 @@ function templateFor(type, preset) {
     const actions = ['A', 'B', 'C', 'D'].map((key) => ({ key, header: '', description: '', images: { complete: '', incomplete: '' } }));
     return { config: { actions, reward: { type: '', value: '' }, display: { image: '', header: '', description: '' } }, templateVersion: latestTemplateVersion };
   }
+  case 'HERO_BANNER': {
+    // Placeholder template for future implementation
+    return { config: { imageUrl: '', headline: '', subtext: '', cta: { label: '', url: '' } }, templateVersion: latestTemplateVersion };
+  }
   default:
     throw new Error(`Unsupported type: ${type}`);
   }
@@ -42,7 +48,7 @@ function hasMeaningfulConfig(type, config) {
   if (!config || typeof config !== 'object') return false;
   switch (type) {
   case 'OFFER':
-    return Array.isArray(config.banners) && config.banners.some((b) => (b.imageUrl || b.header || b.description));
+    return Array.isArray(config.banners) && config.banners.some((b) => (b.imageUrl || b.header || b.description || b.cta || b.sku || b.formLabel));
   case 'POLL':
     return Boolean((config.question && config.question.trim()) || (Array.isArray(config.options) && config.options.some((o) => o && o.trim())));
   case 'QUIZ':
@@ -53,6 +59,8 @@ function hasMeaningfulConfig(type, config) {
       (config.reward && (config.reward.type || config.reward.value)) ||
       (config.display && (config.display.image || config.display.header || config.display.description))
     );
+  case 'HERO_BANNER':
+    return Boolean(config.imageUrl || config.headline || (config.cta && (config.cta.label || config.cta.url)));
   default:
     return false;
   }

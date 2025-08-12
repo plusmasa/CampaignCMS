@@ -1,8 +1,8 @@
 const express = require('express');
-const { Campaign } = require('../models');
+const { Campaign, Partner } = require('../models');
 const { Op } = require('sequelize');
 const { successResponse, errorResponse, paginationResponse } = require('../utils/responses');
-const { validateChannels, validateMarkets, validateTitle } = require('../utils/validation');
+const { validateMarkets, validateTitle } = require('../utils/validation');
 const { VALID_STATES } = require('../utils/constants');
 const { handleAsyncError } = require('../utils/middleware');
 const { logger } = require('../utils/logger');
@@ -14,7 +14,6 @@ const { validateConfig } = require('../utils/campaignSchema');
 router.get('/', handleAsyncError(async (req, res) => {
   const { 
     state, 
-    channel, 
     market, 
     sortBy = 'updatedAt', 
     sortOrder = 'DESC',
@@ -22,7 +21,7 @@ router.get('/', handleAsyncError(async (req, res) => {
     limit = 100
   } = req.query;
 
-  logger.debug('Fetching campaigns', { filters: { state, channel, market }, pagination: { page, limit } });
+  logger.debug('Fetching campaigns', { filters: { state, market }, pagination: { page, limit } });
 
   // Build where clause for filtering
   const whereClause = {};
@@ -35,12 +34,7 @@ router.get('/', handleAsyncError(async (req, res) => {
     ? whereClause.state
     : { [Op.ne]: 'Deleted' };
 
-  // Channel filtering (check if campaign has specific channel)
-  if (channel) {
-    whereClause.channels = {
-      [Op.like]: `%"${channel}"%`
-    };
-  }
+  // Channel filtering removed
 
   // Pagination
   const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -49,7 +43,8 @@ router.get('/', handleAsyncError(async (req, res) => {
     where: whereClause,
     order: [[sortBy, sortOrder.toUpperCase()]],
     limit: parseInt(limit),
-    offset: offset
+    offset: offset,
+    include: [{ model: Partner, as: 'partner', attributes: ['id', 'name', 'active'] }]
   });
 
   // Filter by market if specified (post-query filtering for JSON field)
@@ -67,12 +62,12 @@ router.get('/', handleAsyncError(async (req, res) => {
     totalCount: count,
     hasNextPage: offset + filteredCampaigns.length < count,
     hasPrevPage: parseInt(page) > 1
-  }, { state, channel, market, sortBy, sortOrder }));
+  }, { state, market, sortBy, sortOrder }));
 }));
 
 // GET /api/campaigns/:id - Get single campaign
 router.get('/:id', handleAsyncError(async (req, res) => {
-  const campaign = await Campaign.findByPk(req.params.id);
+  const campaign = await Campaign.findByPk(req.params.id, { include: [{ model: Partner, as: 'partner', attributes: ['id', 'name', 'active'] }] });
   
   if (!campaign) {
     return res.status(404).json(errorResponse('Campaign not found', 404));
@@ -83,22 +78,25 @@ router.get('/:id', handleAsyncError(async (req, res) => {
 
 // POST /api/campaigns - Create new campaign
 router.post('/', handleAsyncError(async (req, res) => {
-  const { title, channels = [], markets, type = 'OFFER', preset } = req.body;
+  const { title, markets, type = 'OFFER', preset, partnerId } = req.body;
   
-  logger.debug('Creating new campaign', { title, channels, markets, type, preset });
+  logger.debug('Creating new campaign', { title, markets, type, preset });
   
   try {
     // Validate required fields
     const validatedTitle = validateTitle(title);
     
-    // Validate channels if provided
-    if (channels.length > 0) {
-      validateChannels(channels);
-    }
-
     // Validate markets if provided
     if (markets) {
       validateMarkets(markets);
+    }
+
+    // Validate partner if provided
+    if (partnerId !== undefined && partnerId !== null) {
+      const partner = await Partner.findByPk(partnerId);
+      if (!partner) {
+        return res.status(400).json(errorResponse('Invalid partnerId', 400));
+      }
     }
 
     // Seed template config for the selected type (backward compatible: defaults to OFFER)
@@ -150,16 +148,22 @@ router.put('/:id', handleAsyncError(async (req, res) => {
       ));
     }
 
-    // Validate channels if being updated
-    if (req.body.channels) {
-      validateChannels(req.body.channels);
-    }
-
     // Validate markets if being updated
     if (req.body.markets) {
       validateMarkets(req.body.markets);
     }
-    
+    // Validate partner if being updated
+    if (req.body.partnerId !== undefined) {
+      if (req.body.partnerId === null) {
+        // allow clearing partner
+      } else {
+        const partner = await Partner.findByPk(req.body.partnerId);
+        if (!partner) {
+          return res.status(400).json(errorResponse('Invalid partnerId', 400));
+        }
+      }
+    }
+
     await campaign.update(req.body);
     
     logger.info('Campaign updated successfully', { campaignId: campaign.id });
@@ -241,9 +245,7 @@ router.post('/:id/duplicate', handleAsyncError(async (req, res) => {
       type: targetType,
       templateVersion: newTemplateVersion,
       config: newConfig,
-      channels: Array.isArray(original.channels) ? [...original.channels] : [],
       markets: original.markets,
-      channelConfig: original.channelConfig || {},
       startDate: original.startDate || null,
       endDate: original.endDate || null
     });

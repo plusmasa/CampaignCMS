@@ -27,7 +27,6 @@ describe('Campaign Model', () => {
       const campaignData = {
         title: 'Test Campaign',
         state: 'Draft',
-        channels: ['Email'],
         markets: ['US']
       };
 
@@ -36,7 +35,6 @@ describe('Campaign Model', () => {
       expect(campaign.id).toBeDefined();
       expect(campaign.title).toBe('Test Campaign');
       expect(campaign.state).toBe('Draft');
-      expect(campaign.channels).toEqual(['Email']);
       expect(campaign.markets).toEqual(['US']);
       expect(campaign.createdAt).toBeDefined();
     });
@@ -44,7 +42,6 @@ describe('Campaign Model', () => {
     it('should set default state to Draft', async () => {
       const campaign = await Campaign.create({
         title: 'Default State Test',
-        channels: ['Email'],
         markets: ['US']
       });
 
@@ -53,12 +50,10 @@ describe('Campaign Model', () => {
 
     it('should handle multiple channels and markets', async () => {
       const campaign = await Campaign.create({
-        title: 'Multi-Channel Campaign',
-        channels: ['Email', 'BNP', 'Rewards Dashboard'],
+        title: 'Multi Market Campaign',
         markets: ['US', 'UK', 'CA']
       });
 
-      expect(campaign.channels).toHaveLength(3);
       expect(campaign.markets).toHaveLength(3);
     });
   });
@@ -66,29 +61,16 @@ describe('Campaign Model', () => {
   describe('Campaign Validation', () => {
     it('should require title field', async () => {
       await expect(
-        Campaign.create({
-          channels: ['Email'],
-          markets: ['US']
-        })
+        Campaign.create({ markets: ['US'] })
       ).rejects.toThrow();
     });
 
     // Note: Our current model allows empty channels/markets with defaults
     // This is intentional for the demo - validation will be added in Phase 5
-    it('should allow channels to default to empty array', async () => {
-      const campaign = await Campaign.create({
-        title: 'Test Campaign',
-        markets: ['US']
-      });
-
-      expect(campaign.channels).toEqual([]);
-    });
+  // channels removed
 
     it('should allow markets to default to "all"', async () => {
-      const campaign = await Campaign.create({
-        title: 'Test Campaign',
-        channels: ['Email']
-      });
+  const campaign = await Campaign.create({ title: 'Test Campaign' });
 
       expect(campaign.markets).toBe('all');
     });
@@ -98,7 +80,6 @@ describe('Campaign Model', () => {
       const campaign = await Campaign.create({
         title: 'Test Campaign',
         state: 'InvalidState',
-        channels: ['Email'],
         markets: ['US']
       });
 
@@ -113,7 +94,6 @@ describe('Campaign Model', () => {
       campaign = await Campaign.create({
         title: 'Test Campaign',
         state: 'Draft',
-        channels: ['Email'],
         markets: ['US']
       });
     });
@@ -129,12 +109,8 @@ describe('Campaign Model', () => {
     });
 
     it('should update channels and markets', async () => {
-      await campaign.update({
-        channels: ['Email', 'BNP'],
-        markets: ['US', 'UK']
-      });
+  await campaign.update({ markets: ['US', 'UK'] });
 
-      expect(campaign.channels).toEqual(['Email', 'BNP']);
       expect(campaign.markets).toEqual(['US', 'UK']);
     });
 
@@ -163,23 +139,11 @@ describe('Campaign Model', () => {
     beforeEach(async () => {
       // Create test campaigns
       await Campaign.bulkCreate([
-        {
-          title: 'Draft Campaign',
-          state: 'Draft',
-          channels: ['Email'],
-          markets: ['US']
-        },
-        {
-          title: 'Live Campaign',
-          state: 'Live',
-          channels: ['BNP'],
-          markets: ['UK'],
-          startDate: new Date()
-        },
+        { title: 'Draft Campaign', state: 'Draft', markets: ['US'] },
+        { title: 'Live Campaign', state: 'Live', markets: ['UK'], startDate: new Date() },
         {
           title: 'Complete Campaign',
           state: 'Complete',
-          channels: ['Email', 'BNP'],
           markets: ['US', 'UK'],
           startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
           endDate: new Date()
@@ -224,17 +188,7 @@ describe('Campaign Model', () => {
   });
 
   describe('Campaign JSON Serialization', () => {
-    it('should properly serialize channels array', async () => {
-      const campaign = await Campaign.create({
-        title: 'JSON Test',
-        channels: ['Email', 'BNP'],
-        markets: ['US']
-      });
-
-      const json = campaign.toJSON();
-      expect(Array.isArray(json.channels)).toBe(true);
-      expect(json.channels).toEqual(['Email', 'BNP']);
-    });
+  // channels removed
 
     it('should properly serialize markets array', async () => {
       const campaign = await Campaign.create({
