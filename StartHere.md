@@ -13,7 +13,6 @@ Read these in order to plan or contribute. No setup required here.
 - Developer-Runbook.md (local dev, testing, troubleshooting; read-only for context)
 - CHANGELOG.md (single source for updates)
 - campaign-cms/README.md (codebase notes)
- - Phase9-Session-Summary.md (latest session summary)
  
 
 ## If you’re planning a feature

@@ -132,11 +132,11 @@ This file is deprecated in favor of a unified CHANGELOG.md. The historical conte
 
 # 📋 Documentation Update Summary - Phase 9 Session (August 11, 2025)
 
-See CHANGELOG.md (2025-08-11 entry) and Phase9-Session-Summary.md for details.
+See CHANGELOG.md (2025-08-11 entry) for details.
 
 ## Updated
 - CHANGELOG.md: Added Phase 9 notes (Offer editor fields and counters, computed URL, header action ordering, Dashboard partner column/persistence).
-- Phase9-Session-Summary.md: Session highlights, verification, and next steps.
+  (Consolidated into CHANGELOG; standalone session summary removed.)
 
 ## Scope
 - Backend: OFFER schema/templates include optional sku and formLabel.
